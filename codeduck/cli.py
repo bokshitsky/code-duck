@@ -15,7 +15,7 @@ from typing import Annotated, Optional, Sequence
 
 import typer
 
-from codeduck.analyzer import JavaDependencyAnalyzer
+from codeduck.analyzer_java import JavaAnalyzer
 from codeduck.duckdb_export import export_to_duckdb
 
 
@@ -90,7 +90,7 @@ def analyze_java(
     resolved_repo_name = repo_name or resolved_project_root.name
 
     if maven_all:
-        module_names = JavaDependencyAnalyzer.discover_maven_modules(resolved_project_root)
+        module_names = JavaAnalyzer.discover_maven_modules(resolved_project_root)
         if not module_names:
             fail("В project-root не найдено ни одного Maven-модуля с pom.xml.", code=2)
         logger.info("Найдено Maven-модулей: %d", len(module_names))

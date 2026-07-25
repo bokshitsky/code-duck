@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import cast
 
-from codeduck.analyzer import JavaDependencyAnalyzer
+from codeduck.analyzer_java import JavaAnalyzer
 
 
 def test_resolves_imported_same_package_static_and_fully_qualified_classes(tmp_path: Path) -> None:
@@ -39,7 +39,7 @@ def test_resolves_imported_same_package_static_and_fully_qualified_classes(tmp_p
     write_java(project_root, "module-b", "example.other.ClassC", "package example.other; public class ClassC {}")
     write_java(project_root, "module-b", "example.other.ClassD", "package example.other; public class ClassD {}")
 
-    records = list(JavaDependencyAnalyzer(project_root, ["module-a"]).analyze())
+    records = list(JavaAnalyzer(project_root, ["module-a"]).analyze())
 
     class_a = next(record for record in records if record["class_name"] == "example.main.ClassA")
     assert class_a["depends_on_classes"] == [
@@ -69,7 +69,7 @@ def test_explicit_import_of_external_class_shadows_project_class_with_same_simpl
     # Одноимённый класс проекта не должен подхватываться вместо org.jooq.Param.
     write_java(project_root, "module-b", "example.other.Param", "package example.other; public class Param {}")
 
-    records = list(JavaDependencyAnalyzer(project_root, ["module-a"]).analyze())
+    records = list(JavaAnalyzer(project_root, ["module-a"]).analyze())
 
     resource = next(record for record in records if record["class_name"] == "example.api.Resource")
     assert "example.other.Param" not in cast(list[str], resource["depends_on_classes"])
@@ -82,7 +82,7 @@ def test_discovers_every_directory_with_pom_xml(tmp_path: Path) -> None:
     write_pom(project_root, "without-sources")
     write_pom(project_root, "module-a/target/generated-sources")
 
-    modules = JavaDependencyAnalyzer.discover_maven_modules(project_root)
+    modules = JavaAnalyzer.discover_maven_modules(project_root)
 
     assert modules == ("module-a", "module-a/target/generated-sources", "parent/child", "without-sources")
 

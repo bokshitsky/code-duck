@@ -1,49 +1,23 @@
 """Экспорт модели Java-кода модулей в базу DuckDB.
 
-Переиспользует резолвинг имён из :mod:`codeduck.analyzer` и дополнительно извлекает
-методы, наследование и аннотации, раскладывая всё по реляционным таблицам.
+Использует :mod:`codeduck.analyzer_java` для построения модели классов, методов,
+наследования и аннотаций и раскладывает её по реляционным таблицам.
 """
 
 from __future__ import annotations
 
-import logging
-import time
 from collections import defaultdict
-from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
-from typing import DefaultDict, Iterator, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import DefaultDict, Optional, Sequence, Set, Tuple
 
 import duckdb
 import pyarrow as pa
-from tree_sitter import Node
 
-from codeduck.analyzer import (
-    ANNOTATION_TYPES,
-    TYPE_REFERENCE_TYPES,
-    ClassDeclaration,
-    JavaDependencyAnalyzer,
-    JavaSource,
-)
+from codeduck.analyzer_java import ClassModel, JavaAnalyzer
 from codeduck.utils.duckdb import connect as connect_duckdb
-
-logger = logging.getLogger("codeduck.duckdb_export")
-
-
-@contextmanager
-def log_duration(stage: str) -> Iterator[None]:
-    """Логирует время выполнения этапа на уровне INFO."""
-    start = time.perf_counter()
-    yield
-    logger.info("%s: %.3f с", stage, time.perf_counter() - start)
+from codeduck.utils.measure import log_duration
 
 INSERT_BATCH_SIZE = 2000
-
-METHOD_TYPES = {
-    "compact_constructor_declaration",
-    "constructor_declaration",
-    "method_declaration",
-}
 
 SCHEMA_STATEMENTS = (
     "CREATE TABLE repos ("
@@ -142,228 +116,6 @@ DROP_STATEMENTS = tuple(
         "repos",
     )
 )
-
-
-@dataclass(frozen=True)
-class MethodModel:
-    """Метод класса: имя, типы параметров и тип возвращаемого значения."""
-
-    name: str
-    params: str
-    return_type: Optional[str]
-    annotations: Tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class ClassModel:
-    """Верхнеуровневый класс со всем, что о нём известно."""
-
-    module_name: str
-    source_type: str
-    fqn: str
-    package_name: str
-    simple_name: str
-    methods: Tuple[MethodModel, ...]
-    dependencies: Tuple[str, ...]
-    supertypes: Tuple[Tuple[str, str], ...]
-    annotations: Tuple[str, ...]
-
-
-class JavaModelAnalyzer(JavaDependencyAnalyzer):
-    """Собирает модель классов, методов и связей для целевых модулей."""
-
-    def __init__(self, project_root: Path, module_names: Sequence[str]) -> None:
-        super().__init__(project_root, module_names)
-        self._source_type_by_path: dict[Path, str] = {}
-
-    def analyze_model(self) -> List[ClassModel]:
-        with log_duration("Чтение и парсинг исходников (tree-sitter)"):
-            sources = list(self._read_all_sources())
-        logger.info("Файлов распарсено: %d", len(sources))
-
-        with log_duration("Поиск деклараций классов"):
-            all_declarations = list(self._find_declarations(sources))
-        target_modules = set(self.module_names)
-        declarations = [
-            declaration
-            for declaration in all_declarations
-            if declaration.module_name in target_modules
-        ]
-        known_classes = {declaration.class_name for declaration in all_declarations}
-        classes_by_simple_name = self._group_by_simple_name(known_classes)
-
-        models = []
-        with log_duration("Анализ модели (зависимости/методы/наследование/аннотации)"):
-            for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
-                source_type = self._source_type_by_path[declaration.source.path]
-                package_name = declaration.source.package_name
-                simple_name = declaration.class_name.rsplit(".", 1)[-1]
-                models.append(
-                    ClassModel(
-                        module_name=declaration.module_name,
-                        source_type=source_type,
-                        fqn=declaration.class_name,
-                        package_name=package_name,
-                        simple_name=simple_name,
-                        methods=tuple(self._methods(declaration, known_classes, classes_by_simple_name)),
-                        dependencies=tuple(
-                            sorted(self._dependencies_for(declaration, known_classes, classes_by_simple_name))
-                        ),
-                        supertypes=tuple(self._supertypes(declaration, known_classes, classes_by_simple_name)),
-                        annotations=tuple(
-                            sorted(self._class_annotations(declaration, known_classes, classes_by_simple_name))
-                        ),
-                    )
-                )
-        logger.info("Классов в модели: %d", len(models))
-        return models
-
-    def _read_all_sources(self) -> Iterator[JavaSource]:
-        target_modules = set(self.module_names)
-        for module_name in self._project_modules():
-            yield from self._read_module_sources(module_name, "main", "prod")
-            if module_name in target_modules:
-                yield from self._read_module_sources(module_name, "test", "test")
-
-    def _read_module_sources(self, module_name: str, source_dir: str, source_type: str) -> Iterator[JavaSource]:
-        source_root = self.project_root / module_name / "src" / source_dir / "java"
-        if not source_root.is_dir():
-            return
-        for path in sorted(source_root.rglob("*.java")):
-            source = path.read_bytes()
-            tree = self.parser.parse(source)
-            package_name = self._package_name(tree.root_node, source)
-            explicit_imports, wildcard_imports, static_imports = self._imports(tree.root_node, source)
-            self._source_type_by_path[path] = source_type
-            yield JavaSource(
-                module_name=module_name,
-                path=path,
-                source=source,
-                tree=tree,
-                package_name=package_name,
-                explicit_imports=explicit_imports,
-                wildcard_imports=wildcard_imports,
-                static_imports=static_imports,
-            )
-
-    def _methods(
-        self,
-        declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Iterator[MethodModel]:
-        body = declaration.node.child_by_field_name("body")
-        if body is None:
-            return
-        source = declaration.source.source
-        for method_node in self._method_nodes(body):
-            name_node = method_node.child_by_field_name("name")
-            if name_node is None:
-                continue
-            return_type_node = method_node.child_by_field_name("type")
-            annotations = self._node_annotations(
-                method_node,
-                declaration.source,
-                known_classes,
-                classes_by_simple_name,
-            )
-            yield MethodModel(
-                name=self._text(name_node, source),
-                params=self._method_params(method_node, source),
-                return_type=self._text(return_type_node, source) if return_type_node is not None else None,
-                annotations=tuple(sorted(annotations)),
-            )
-
-    def _method_nodes(self, body: Node) -> Iterator[Node]:
-        for child in body.named_children:
-            if child.type in METHOD_TYPES:
-                yield child
-            elif child.type == "enum_body_declarations":
-                for nested in child.named_children:
-                    if nested.type in METHOD_TYPES:
-                        yield nested
-
-    def _method_params(self, method_node: Node, source: bytes) -> str:
-        params_node = method_node.child_by_field_name("parameters")
-        if params_node is None:
-            return ""
-        param_types = []
-        for parameter in params_node.named_children:
-            if parameter.type == "formal_parameter":
-                type_node = parameter.child_by_field_name("type")
-                if type_node is not None:
-                    param_types.append(self._text(type_node, source))
-            elif parameter.type == "spread_parameter":
-                type_node = next(
-                    (child for child in parameter.named_children if child.type not in {"modifiers", "variable_declarator"}),
-                    None,
-                )
-                if type_node is not None:
-                    param_types.append(self._text(type_node, source) + "...")
-        return ", ".join(param_types)
-
-    def _supertypes(
-        self,
-        declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> List[Tuple[str, str]]:
-        result = []
-        implemented = self._implemented_interfaces(declaration, known_classes, classes_by_simple_name)
-        for interface_fqn in sorted(implemented):
-            result.append((interface_fqn, "implements"))
-
-        extends_containers = []
-        superclass = declaration.node.child_by_field_name("superclass")
-        if superclass is not None:
-            extends_containers.append(superclass)
-        extends_containers.extend(
-            child
-            for child in declaration.node.named_children
-            if child.type == "extends_interfaces"
-        )
-
-        extended = set()
-        for container in extends_containers:
-            for node in self._walk(container):
-                if node.type not in TYPE_REFERENCE_TYPES:
-                    continue
-                resolved = self._resolve_name(
-                    self._text(node, declaration.source.source),
-                    declaration.source,
-                    known_classes,
-                    classes_by_simple_name,
-                )
-                if resolved is not None and resolved != declaration.class_name:
-                    extended.add(resolved)
-        for super_fqn in sorted(extended):
-            result.append((super_fqn, "extends"))
-        return result
-
-    def _node_annotations(
-        self,
-        node: Node,
-        source: JavaSource,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Set[str]:
-        annotations = set()
-        for child in node.named_children:
-            if child.type != "modifiers":
-                continue
-            for annotation in child.named_children:
-                if annotation.type not in ANNOTATION_TYPES:
-                    continue
-                annotation_name = self._annotation_name(annotation, source.source)
-                annotations.add(
-                    self._resolve_annotation_name(
-                        annotation_name,
-                        source,
-                        known_classes,
-                        classes_by_simple_name,
-                    )
-                )
-        return annotations
 
 
 def write_database(
@@ -502,7 +254,7 @@ def export_to_duckdb(
             if not force:
                 raise FileExistsError(f"Файл уже существует: {output}")
             output.unlink()
-        analyzer = JavaModelAnalyzer(project_root, module_names)
+        analyzer = JavaAnalyzer(project_root, module_names)
         with log_duration("Анализ исходников (всего)"):
             class_models = analyzer.analyze_model()
         output.parent.mkdir(parents=True, exist_ok=True)

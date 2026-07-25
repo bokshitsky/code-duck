@@ -64,7 +64,7 @@ def test_java_analysis_discovers_modules_with_maven_all(tmp_path: Path, monkeypa
     ) -> None:
         calls.append((project_root, module_names, output_path, repo_name, force))
 
-    monkeypatch.setattr("codeduck.cli.JavaDependencyAnalyzer.discover_maven_modules", discover_maven_modules)
+    monkeypatch.setattr("codeduck.cli.JavaAnalyzer.discover_maven_modules", discover_maven_modules)
     monkeypatch.setattr("codeduck.cli.export_to_duckdb", export_to_duckdb)
     result = CliRunner().invoke(
         app,
