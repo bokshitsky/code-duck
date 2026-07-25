@@ -25,6 +25,7 @@ from codeduck.analyzer import (
     JavaDependencyAnalyzer,
     JavaSource,
 )
+from codeduck.utils.duckdb import connect as connect_duckdb
 
 logger = logging.getLogger("codeduck.duckdb_export")
 
@@ -501,9 +502,6 @@ def export_to_duckdb(
         output.parent.mkdir(parents=True, exist_ok=True)
         if output.exists():
             output.unlink()
-        connection = duckdb.connect(str(output))
-        try:
+        with connect_duckdb(output) as connection:
             with log_duration("Запись в базу (всего)"):
                 write_database(connection, repo_name, module_names, class_models)
-        finally:
-            connection.close()
