@@ -10,9 +10,9 @@ import duckdb
 
 
 @contextmanager
-def connect(path: str | Path) -> Iterator[duckdb.DuckDBPyConnection]:
+def connect(path: str | Path, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
     """Открывает DuckDB-соединение и гарантированно закрывает его."""
-    connection = duckdb.connect(str(path))
+    connection = duckdb.connect(str(path), read_only=read_only)
     try:
         yield connection
     finally:

@@ -114,16 +114,29 @@ def analyze_java(
     except OSError as error:
         fail(str(error))
 
+@app.command("mcp", help="Запустить локальный MCP-сервер (stdio) над базами DuckDB.")
+def mcp() -> None:
+    """Поднять локальный MCP-сервер с инструментами query и get_instructions.
+
+    Путь к файлу базы передаётся параметром самих инструментов, поэтому один
+    сервер обслуживает любую базу.
+    """
+    from codeduck.mcp_server import run_server
+
+    run_server()
+
+
 def main(arguments: Sequence[str] | None = None) -> int:
     try:
-        app(
+        result = app(
             args=list(arguments) if arguments is not None else None,
             prog_name="codeduck",
             standalone_mode=False,
         )
     except typer.Exit as error:
         return error.exit_code
-    return 0
+    # При standalone_mode=False click возвращает код выхода вместо sys.exit.
+    return result if isinstance(result, int) else 0
 
 
 if __name__ == "__main__":
