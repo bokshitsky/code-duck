@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import DefaultDict, Iterable, Iterator, List, Mapping, Optional, Sequence, Set, Tuple
 
 import tree_sitter_java
-from tree_sitter import Language, Node, Parser
+from tree_sitter import Language, Node, Parser, Tree
 
 from codeduck.utils.measure import log_duration
 
@@ -48,7 +48,7 @@ class JavaSource:
     module_name: str
     path: Path
     source: bytes
-    tree: object
+    tree: Tree
     package_name: str
     explicit_imports: Mapping[str, str]
     wildcard_imports: Tuple[str, ...]

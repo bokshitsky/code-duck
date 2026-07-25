@@ -167,26 +167,28 @@ def write_database(
             for annotation_fqn in model.annotations:
                 class_annotation_rows.append([class_id, annotation_fqn])
 
-    def insert_arrow(table: str, columns: Sequence[Tuple[str, pa.DataType]], rows: Sequence[Sequence[object]]) -> None:
+    def insert_arrow(table_name: str, columns: Sequence[Tuple[str, object]], rows: Sequence[Sequence[object]]) -> None:
         # Собираем данные в колоночную Arrow-таблицу и вставляем одним INSERT ... SELECT.
         # DuckDB читает Arrow из памяти напрямую (zero-copy), минуя SQL-слой для каждой строки.
         if not rows:
             return
         column_values = list(zip(*rows))
-        arrow_table = pa.table(
+        arrow_array = getattr(pa, "array")
+        arrow_table_factory = getattr(pa, "table")
+        arrow_table = arrow_table_factory(
             {
-                column_name: pa.array(list(values), type=arrow_type)
+                column_name: arrow_array(list(values), type=arrow_type)
                 for (column_name, arrow_type), values in zip(columns, column_values)
             }
         )
         connection.register("_insert_view", arrow_table)
         try:
-            connection.execute("INSERT INTO %s SELECT * FROM _insert_view" % table)
+            connection.execute("INSERT INTO %s SELECT * FROM _insert_view" % table_name)
         finally:
             connection.unregister("_insert_view")
 
-    text = pa.string()
-    integer = pa.int32()
+    text = pa.string()  # type: ignore[attr-defined]
+    integer = pa.int32()  # type: ignore[attr-defined]
     with log_duration("Вставка данных в DuckDB"):
         insert_arrow("repos", [("repo_id", integer), ("name", text)], [[1, repo_name]])
         insert_arrow("modules", [("module_name", text), ("repo_id", integer)], module_rows)

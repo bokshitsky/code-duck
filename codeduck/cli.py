@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated, Optional, Sequence
+from typing import Annotated, Optional, Sequence, cast
 
 import typer
 
@@ -61,9 +61,9 @@ def analyze_java(
         typer.Option(help="Корень Maven-проекта (по умолчанию текущий каталог)."),
     ] = None,
     output: Annotated[
-        Path,
+        Optional[Path],
         typer.Option("-o", "--output", help="Путь к создаваемому файлу базы DuckDB."),
-    ] = ...,
+    ] = None,
     force: Annotated[
         bool,
         typer.Option("-f", "--force", help="Пересоздать файл базы, если он уже существует."),
@@ -98,11 +98,14 @@ def analyze_java(
         module_names = tuple(modules)
         if not module_names:
             fail("Укажите модули позиционно или используйте --maven-all.", code=2)
+    if output is None:
+        fail("Укажите --output.", code=2)
+    resolved_output = cast(Path, output)
     try:
         export_to_duckdb(
             resolved_project_root,
             module_names,
-            output,
+            resolved_output,
             resolved_repo_name,
             force=force,
         )

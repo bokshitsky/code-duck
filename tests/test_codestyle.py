@@ -4,7 +4,7 @@ from pystolint.api import check
 from pystolint.tools import Tool
 
 ROOT = Path(__file__).parent.parent
-MODULES = ['pynab', 'tests']
+MODULES = ['codeduck', 'tests']
 
 
 def test_codestyle() -> None:
