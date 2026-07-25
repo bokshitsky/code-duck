@@ -122,6 +122,8 @@ class DuckDbExportTest(unittest.TestCase):
         source_root = project_root / module_name / "src" / source_dir / "java" / package_name.replace(".", "/")
         source_root.mkdir(parents=True, exist_ok=True)
         (source_root / (simple_name + ".java")).write_text(source, encoding="utf-8")
+        module_root = project_root / module_name
+        (module_root / "pom.xml").write_text("<project />", encoding="utf-8")
 
 
 if __name__ == "__main__":

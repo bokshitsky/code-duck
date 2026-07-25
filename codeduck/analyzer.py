@@ -94,31 +94,27 @@ class JavaDependencyAnalyzer:
             }
 
     def _project_modules(self) -> Tuple[str, ...]:
-        """Возвращает модули с Java-исходниками для полного индекса проекта."""
+        """Возвращает Maven-модули для полного индекса проекта."""
         discovered_modules = self.discover_maven_modules(self.project_root)
         missing_modules = set(self.module_names).difference(discovered_modules)
         if missing_modules:
             missing = ", ".join(sorted(missing_modules))
-            raise ValueError("В модулях нет каталога src/main/java: %s" % missing)
+            raise ValueError("В модулях нет pom.xml: %s" % missing)
         return discovered_modules
 
     @staticmethod
     def discover_maven_modules(project_root: Path) -> Tuple[str, ...]:
-        """Находит все вложенные Maven-модули с Java-исходниками.
+        """Находит все Maven-модули.
 
-        Модулем считается каталог с `src/main/java` на любой глубине проекта.
+        Модулем считается каталог с `pom.xml` на любой глубине проекта.
         Имя модуля — его путь относительно корня в posix-виде (например,
-        `hh-fixture/server`). Каталоги внутри `target` пропускаются.
+        `hh-fixture/server`).
         """
         modules = set()
-        for source_root in project_root.rglob("src/main/java"):
-            if not source_root.is_dir():
-                continue
-            relative_source_root = source_root.relative_to(project_root)
-            if "target" in relative_source_root.parts:
-                continue
-            module_dir = source_root.parents[2].relative_to(project_root)
-            modules.add(module_dir.as_posix())
+        for pom_file in project_root.rglob("pom.xml"):
+            if pom_file.is_file():
+                module_dir = pom_file.parent.relative_to(project_root)
+                modules.add(module_dir.as_posix())
         return tuple(sorted(modules))
 
     def _read_sources(self, module_names: Iterable[str]) -> Iterator[JavaSource]:

@@ -81,17 +81,20 @@ class JavaDependencyAnalyzerTest(unittest.TestCase):
         resource = next(record for record in records if record["class_name"] == "example.api.Resource")
         self.assertNotIn("example.other.Param", resource["depends_on_classes"])
 
-    def test_discovers_nested_maven_modules_and_skips_target(self):
+    def test_discovers_every_directory_with_pom_xml(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
             self._write_java(project_root, "module-a", "example.a.A", "package example.a; class A {}")
             self._write_java(project_root, "parent/child", "example.b.B", "package example.b; class B {}")
-            # Сгенерированные исходники под target не должны считаться модулем.
-            self._write_java(project_root, "module-a/target/generated-sources", "example.g.G", "package example.g; class G {}")
+            self._write_pom(project_root, "without-sources")
+            self._write_pom(project_root, "module-a/target/generated-sources")
 
             modules = JavaDependencyAnalyzer.discover_maven_modules(project_root)
 
-        self.assertEqual(("module-a", "parent/child"), modules)
+        self.assertEqual(
+            ("module-a", "module-a/target/generated-sources", "parent/child", "without-sources"),
+            modules,
+        )
 
     @staticmethod
     def _write_java(project_root, module_name, class_name, source):
@@ -99,6 +102,13 @@ class JavaDependencyAnalyzerTest(unittest.TestCase):
         source_root = project_root / module_name / "src" / "main" / "java" / package_name.replace(".", "/")
         source_root.mkdir(parents=True, exist_ok=True)
         (source_root / (simple_name + ".java")).write_text(source, encoding="utf-8")
+        JavaDependencyAnalyzerTest._write_pom(project_root, module_name)
+
+    @staticmethod
+    def _write_pom(project_root, module_name):
+        module_root = project_root / module_name
+        module_root.mkdir(parents=True, exist_ok=True)
+        (module_root / "pom.xml").write_text("<project />", encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ def _analyze_java(args: argparse.Namespace) -> int:
         if args.all:
             module_names = JavaDependencyAnalyzer.discover_maven_modules(project_root)
             if not module_names:
-                print("В project-root не найдено ни одного Maven-модуля с src/main/java.", file=sys.stderr)
+                print("В project-root не найдено ни одного Maven-модуля с pom.xml.", file=sys.stderr)
                 return 2
             logger.info("Найдено Maven-модулей: %d", len(module_names))
         else:
