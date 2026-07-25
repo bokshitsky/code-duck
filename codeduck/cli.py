@@ -23,7 +23,8 @@ from codeduck.duckdb_export import export_to_duckdb
 app = typer.Typer(
     help="Анализ исходного кода и выгрузка модели в DuckDB.",
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
+    context_settings={'help_option_names': ['-h', '--help']},
 )
 """Корневое приложение.
 
@@ -76,43 +77,35 @@ def analyze_java(
     )
     logger = logging.getLogger("codeduck.cli")
 
+    resolved_project_root = (project_root or Path.cwd()).resolve()
+    resolved_repo_name = repo_name or resolved_project_root.name
+
+    if maven_all:
+        module_names = JavaDependencyAnalyzer.discover_maven_modules(resolved_project_root)
+        if not module_names:
+            typer.echo("В project-root не найдено ни одного Maven-модуля с pom.xml.", err=True)
+            raise typer.Exit(code=2)
+        logger.info("Найдено Maven-модулей: %d", len(module_names))
+    else:
+        module_names = tuple(modules)
+        if not module_names:
+            typer.echo("Укажите модули позиционно или используйте --maven-all.", err=True)
+            raise typer.Exit(code=2)
+    export_to_duckdb(resolved_project_root, module_names, output, resolved_repo_name)
+
+def main(arguments: Sequence[str] | None = None) -> int:
     try:
-        resolved_project_root = (project_root or Path.cwd()).resolve()
-        resolved_repo_name = repo_name or resolved_project_root.name
-
-        if maven_all:
-            module_names = JavaDependencyAnalyzer.discover_maven_modules(resolved_project_root)
-            if not module_names:
-                typer.echo("В project-root не найдено ни одного Maven-модуля с pom.xml.", err=True)
-                raise typer.Exit(code=2)
-            logger.info("Найдено Maven-модулей: %d", len(module_names))
-        else:
-            module_names = tuple(modules)
-            if not module_names:
-                typer.echo("Укажите модули позиционно или используйте --maven-all.", err=True)
-                raise typer.Exit(code=2)
-
-        export_to_duckdb(resolved_project_root, module_names, output, resolved_repo_name)
-    except (OSError, ValueError) as error:
-        typer.echo("Ошибка анализа: %s" % error, err=True)
-        raise typer.Exit(code=2) from error
-
-
-def main(arguments: Optional[Sequence[str]] = None) -> int:
-    """Запустить CLI; аргумент нужен для программного вызова и тестов."""
-
-    try:
-        result = app(
+        app(
             args=list(arguments) if arguments is not None else None,
             prog_name="codeduck",
             standalone_mode=False,
         )
-    except typer.Exit as error:
-        return error.exit_code
     except ClickException as error:
         error.show()
         return error.exit_code
-    return result if isinstance(result, int) else 0
+    except typer.Exit as error:
+        return error.exit_code
+    return 0
 
 
 if __name__ == "__main__":
