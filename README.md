@@ -42,18 +42,16 @@ wildcard-import'ам, классам из текущего package и уника
 ## Схема
 
 - `repos(repo_id, name)` — репозиторий (одна строка на запуск).
-- `modules(module_name, repo_id)` — проанализированные модули; для вложенных
+- `java_modules(module_name, repo_id)` — проанализированные модули; для вложенных
   модулей `module_name` — путь относительно корня (например, `hh-fixture/server`).
-- `classes(class_id, class_name, package_name, fqn, module_name, source_type)` —
+- `java_classes(module_name, source_type, class_id, class_name, package_name, fqn)` —
   верхнеуровневые классы; `class_name` — простое имя, `fqn` — полное.
   `source_type` ∈ {`prod`, `test`}.
-- `methods(method_id, class_id, method_name, params, return_type)` — `params` —
+- `java_methods(method_id, class_id, method_name, params, return_type)` — `params` —
   типы параметров через запятую (varargs как `Тип...`).
-- `class_dependencies(from_class_id, to_fqn, to_class_id, to_module_name)` —
-  «класс зависит от класса». `to_class_id` заполнен, только если `to_fqn`
-  однозначно соответствует одному классу в `classes` (иначе `NULL`).
-- `class_supertypes(class_id, super_fqn, super_class_id, relation_type)` —
-  наследование; `relation_type` ∈ {`extends`, `implements`}.
-- `class_annotations(class_id, annotation_fqn)` и
-  `method_annotations(method_id, annotation_fqn)` — аннотации класса и метода
+- `java_class_dependencies(from_class_id, relation_type, to_fqn)` — связи класса с
+  другими типами по их `to_fqn`. `relation_type` ∈ {`annotated_by` (аннотация класса),
+  `extends` (наследование), `implements` (реализация интерфейса), `uses` (использование
+  типа в коде)}.
+- `java_method_annotations(method_id, annotation_fqn)` — аннотации метода
   (имена разрешаются до FQN там, где это возможно).
