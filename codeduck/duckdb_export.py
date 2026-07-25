@@ -36,12 +36,14 @@ SCHEMA_STATEMENTS = (
     "CREATE TABLE java_methods ("
     "  method_id INTEGER PRIMARY KEY,"
     "  class_id INTEGER NOT NULL REFERENCES java_classes(class_id),"
+    "  class_fqn TEXT NOT NULL,"
     "  method_name TEXT NOT NULL,"
     "  params TEXT NOT NULL,"
     "  return_type TEXT"
     ")",
     "CREATE TABLE java_class_dependencies ("
     "  from_class_id INTEGER NOT NULL REFERENCES java_classes(class_id),"
+    "  from_fqn TEXT NOT NULL,"
     "  relation_type TEXT NOT NULL,"
     "  to_fqn TEXT NOT NULL"
     ")",
@@ -68,11 +70,13 @@ COMMENT_STATEMENTS = (
     "COMMENT ON TABLE java_methods IS 'Методы и конструкторы, объявленные непосредственно в теле класса'",
     "COMMENT ON COLUMN java_methods.method_id IS 'Суррогатный идентификатор метода'",
     "COMMENT ON COLUMN java_methods.class_id IS 'Класс-владелец метода; ссылка на java_classes.class_id'",
+    "COMMENT ON COLUMN java_methods.class_fqn IS 'Полное имя класса-владельца метода; денормализованная копия java_classes.fqn'",
     "COMMENT ON COLUMN java_methods.method_name IS 'Имя метода; для конструктора совпадает с именем класса'",
     "COMMENT ON COLUMN java_methods.params IS 'Типы параметров через запятую в порядке объявления; varargs как Тип...; пустая строка при отсутствии параметров'",
     "COMMENT ON COLUMN java_methods.return_type IS 'Тип возвращаемого значения (void для процедур); NULL для конструктора'",
     "COMMENT ON TABLE java_class_dependencies IS 'Связи класса с другими типами по их FQN: использование, наследование и аннотации'",
     "COMMENT ON COLUMN java_class_dependencies.from_class_id IS 'Класс-источник связи; ссылка на java_classes.class_id'",
+    "COMMENT ON COLUMN java_class_dependencies.from_fqn IS 'Полное имя класса-источника связи; денормализованная копия java_classes.fqn'",
     "COMMENT ON COLUMN java_class_dependencies.relation_type IS 'Тип связи: annotated_by (аннотация класса), extends (наследование), implements (реализация интерфейса), uses (использование типа в коде)'",
     "COMMENT ON COLUMN java_class_dependencies.to_fqn IS 'Полное имя типа, с которым связан класс (аннотация, суперкласс, интерфейс или используемый тип)'",
     "COMMENT ON TABLE java_method_annotations IS 'Аннотации, которыми помечена декларация метода'",
@@ -125,15 +129,15 @@ def write_database(
         for class_id, model in enumerate(class_models, start=1):
             for method in model.methods:
                 method_id += 1
-                method_rows.append([method_id, class_id, method.name, method.params, method.return_type])
+                method_rows.append([method_id, class_id, model.fqn, method.name, method.params, method.return_type])
                 for annotation_fqn in method.annotations:
                     method_annotation_rows.append([method_id, annotation_fqn])
             for annotation_fqn in model.annotations:
-                dependency_rows.append([class_id, "annotated_by", annotation_fqn])
+                dependency_rows.append([class_id, model.fqn, "annotated_by", annotation_fqn])
             for super_fqn, relation_type in model.supertypes:
-                dependency_rows.append([class_id, relation_type, super_fqn])
+                dependency_rows.append([class_id, model.fqn, relation_type, super_fqn])
             for dependency_fqn in model.dependencies:
-                dependency_rows.append([class_id, "uses", dependency_fqn])
+                dependency_rows.append([class_id, model.fqn, "uses", dependency_fqn])
 
     def insert_arrow(table_name: str, columns: Sequence[Tuple[str, object]], rows: Sequence[Sequence[object]]) -> None:
         # Собираем данные в колоночную Arrow-таблицу и вставляем одним INSERT ... SELECT.
@@ -177,6 +181,7 @@ def write_database(
             [
                 ("method_id", integer),
                 ("class_id", integer),
+                ("class_fqn", text),
                 ("method_name", text),
                 ("params", text),
                 ("return_type", text),
@@ -190,6 +195,7 @@ def write_database(
             "java_class_dependencies",
             [
                 ("from_class_id", integer),
+                ("from_fqn", text),
                 ("relation_type", text),
                 ("to_fqn", text),
             ],

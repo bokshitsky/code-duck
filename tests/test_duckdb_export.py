@@ -84,6 +84,11 @@ def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
     ).fetchone()
     assert handle_params == ("int, java.util.List<String>", "String")
 
+    handle_class_fqn = connection.execute(
+        "SELECT class_fqn FROM java_methods WHERE method_name = 'handle'"
+    ).fetchone()
+    assert handle_class_fqn == ("example.main.UserService",)
+
     supertypes = connection.execute(
         "SELECT to_fqn, relation_type FROM java_class_dependencies d JOIN java_classes c ON d.from_class_id = c.class_id "
         "WHERE c.class_name = 'UserService' AND relation_type IN ('extends', 'implements') ORDER BY relation_type"
@@ -101,6 +106,12 @@ def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
         "WHERE c.class_name = 'UserService' AND relation_type = 'annotated_by'"
     ).fetchone()
     assert annotation == ("org.springframework.stereotype.Service",)
+
+    from_fqns = connection.execute(
+        "SELECT DISTINCT d.from_fqn FROM java_class_dependencies d JOIN java_classes c ON d.from_class_id = c.class_id "
+        "WHERE c.class_name = 'UserService'"
+    ).fetchall()
+    assert from_fqns == [("example.main.UserService",)]
 
     method_annotation = connection.execute(
         "SELECT annotation_fqn FROM java_method_annotations ma JOIN java_methods m ON ma.method_id = m.method_id "

@@ -67,10 +67,12 @@ uv run codeduck mcp
 - `java_classes(module_name, source_type, class_id, class_name, package_name, fqn)` —
   верхнеуровневые классы; `class_name` — простое имя, `fqn` — полное.
   `source_type` ∈ {`prod`, `test`}.
-- `java_methods(method_id, class_id, method_name, params, return_type)` — `params` —
-  типы параметров через запятую (varargs как `Тип...`).
-- `java_class_dependencies(from_class_id, relation_type, to_fqn)` — связи класса с
-  другими типами по их `to_fqn`. `relation_type` ∈ {`annotated_by` (аннотация класса),
+- `java_methods(method_id, class_id, class_fqn, method_name, params, return_type)` — `params` —
+  типы параметров через запятую (varargs как `Тип...`). `class_fqn` — денормализованная
+  копия `java_classes.fqn` класса-владельца.
+- `java_class_dependencies(from_class_id, from_fqn, relation_type, to_fqn)` — связи класса с
+  другими типами по их `to_fqn`. `from_fqn` — денормализованная копия `java_classes.fqn`
+  класса-источника. `relation_type` ∈ {`annotated_by` (аннотация класса),
   `extends` (наследование), `implements` (реализация интерфейса), `uses` (использование
   типа в коде)}.
 - `java_method_annotations(method_id, annotation_fqn)` — аннотации метода
