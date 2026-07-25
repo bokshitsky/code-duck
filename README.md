@@ -1,24 +1,20 @@
 # codeduck
 
-`codeduck` анализирует Java-код только по дереву разбора Tree-sitter (без `jdeps`,
-Maven или компилятора) и раскладывает модель кода по реляционным таблицам DuckDB.
+`codeduck` анализирует код и собирает информацию о нем в [DuckDB](https://duckdb.org/).
 
-## Анализ Java в DuckDB
+## Java
 
-Команда `codeduck analyze java` парсит Maven-модули Tree-sitter-резолвером и пишет
-модель кода в файл базы DuckDB. Извлекаются классы, методы (с типами параметров),
-зависимости, наследование и аннотации. Для целевых модулей индексируются классы
-как из `src/main/java` (`source_type = prod`), так и из `src/test/java`
-(`source_type = test`).
+Команда `codeduck analyze java` парсит Maven-модули.
+Извлекаются классы, методы (с типами параметров), зависимости, наследование и аннотации.
+Для целевых модулей индексируются классы  как из `src/main/java` (`source_type = prod`), так и из `src/test/java` (`source_type = test`).
 
-### Все вложенные модули (`--all`)
+### Все вложенные Maven-модули (`--maven-all`)
 
-С флагом `--all` инструмент сам находит все вложенные Maven-модули под
-`--project-root` — модулем считается любой каталог с `pom.xml` на любой глубине.
+С флагом `--maven-all` инструмент сам находит все вложенные Maven-модули под`--project-root` — модулем считается любой каталог с `pom.xml` на любой глубине.
 Имя вложенного модуля — путь относительно корня, например `hh-fixture/server`.
 
 ```bash
-uv run codeduck analyze java --maven --all \
+uv run codeduck analyze java --maven-all \
   --project-root /path/to/hh.ru \
   --output model.duckdb \
   --repo-name hh.ru
@@ -26,10 +22,10 @@ uv run codeduck analyze java --maven --all \
 
 ### Явный список модулей
 
-Вместо `--all` можно перечислить модули позиционно:
+Вместо `--maven-all` можно перечислить модули позиционно:
 
 ```bash
-uv run codeduck analyze java --maven hh-core hh-utils webapp-common \
+uv run codeduck analyze java hh-core hh-utils webapp-common \
   --project-root /path/to/hh.ru \
   --output model.duckdb \
   --repo-name hh.ru

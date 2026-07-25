@@ -2,7 +2,7 @@
 
 Пример::
 
-    uv run codeduck analyze java --maven --all \\
+    uv run codeduck analyze java --maven-all \\
         --project-root ROOT --output model.duckdb --repo-name hh.ru
 """
 
@@ -43,16 +43,12 @@ def analyze_java(
     modules: Annotated[
         list[str],
         typer.Argument(
-            help="Имена Maven-модулей относительно корня проекта (игнорируются при --all)."
+            help="Имена Maven-модулей относительно корня проекта (игнорируются при --maven-all)."
         ),
     ] = [],
-    maven: Annotated[
+    maven_all: Annotated[
         bool,
-        typer.Option(help="Maven-раскладка исходников (src/main/java, src/test/java)."),
-    ] = False,
-    all_modules: Annotated[
-        bool,
-        typer.Option("--all", help="Найти и проанализировать все вложенные Maven-модули project-root."),
+        typer.Option("--maven-all", help="Найти и проанализировать все вложенные Maven-модули project-root."),
     ] = False,
     project_root: Annotated[
         Optional[Path],
@@ -80,15 +76,11 @@ def analyze_java(
     )
     logger = logging.getLogger("codeduck.cli")
 
-    if not maven:
-        typer.echo("Поддерживается только Maven-раскладка; укажите --maven.", err=True)
-        raise typer.Exit(code=2)
-
     try:
         resolved_project_root = (project_root or Path.cwd()).resolve()
         resolved_repo_name = repo_name or resolved_project_root.name
 
-        if all_modules:
+        if maven_all:
             module_names = JavaDependencyAnalyzer.discover_maven_modules(resolved_project_root)
             if not module_names:
                 typer.echo("В project-root не найдено ни одного Maven-модуля с pom.xml.", err=True)
@@ -97,7 +89,7 @@ def analyze_java(
         else:
             module_names = tuple(modules)
             if not module_names:
-                typer.echo("Укажите модули позиционно или используйте --all.", err=True)
+                typer.echo("Укажите модули позиционно или используйте --maven-all.", err=True)
                 raise typer.Exit(code=2)
 
         export_to_duckdb(resolved_project_root, module_names, output, resolved_repo_name)
