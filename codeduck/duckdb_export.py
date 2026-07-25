@@ -16,8 +16,6 @@ from codeduck.analyzer_java import ClassModel, JavaAnalyzer
 from codeduck.utils.duckdb import connect as connect_duckdb
 from codeduck.utils.measure import log_duration
 
-INSERT_BATCH_SIZE = 2000
-
 SCHEMA_STATEMENTS = (
     "CREATE TABLE repos ("
     "  repo_id INTEGER PRIMARY KEY,"
