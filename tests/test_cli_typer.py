@@ -1,48 +1,44 @@
-import tempfile
-import unittest
-from pathlib import Path
-from unittest.mock import patch
-
 from typer.testing import CliRunner
 
 from codeduck.cli import app
 
 
-class CodeduckCliTest(unittest.TestCase):
-    def setUp(self):
-        self.runner = CliRunner()
+def test_java_analysis_is_registered_under_analyze():
+    result = CliRunner().invoke(app, ["analyze", "--help"])
 
-    def test_java_analysis_is_registered_under_analyze(self):
-        result = self.runner.invoke(app, ["analyze", "--help"])
+    assert result.exit_code == 0
+    assert "java" in result.output
 
-        self.assertEqual(0, result.exit_code)
-        self.assertIn("java", result.output)
 
-    @patch("codeduck.cli.export_to_duckdb")
-    def test_java_analysis_passes_modules_to_exporter(self, export):
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            project_root = Path(temporary_directory)
-            output = project_root / "model.duckdb"
+def test_java_analysis_passes_modules_to_exporter(tmp_path, monkeypatch):
+    project_root = tmp_path
+    output = project_root / "model.duckdb"
+    calls = []
 
-            result = self.runner.invoke(
-                app,
-                [
-                    "analyze",
-                    "java",
-                    "module-a",
-                    "--maven",
-                    "--project-root",
-                    str(project_root),
-                    "--output",
-                    str(output),
-                ],
-            )
+    def export_to_duckdb(*args):
+        calls.append(args)
 
-        self.assertEqual(0, result.exit_code, result.output)
-        export.assert_called_once_with(project_root.resolve(), ("module-a",), output, project_root.name)
+    monkeypatch.setattr("codeduck.cli.export_to_duckdb", export_to_duckdb)
+    result = CliRunner().invoke(
+        app,
+        [
+            "analyze",
+            "java",
+            "module-a",
+            "--maven",
+            "--project-root",
+            str(project_root),
+            "--output",
+            str(output),
+        ],
+    )
 
-    def test_java_analysis_requires_maven_layout(self):
-        result = self.runner.invoke(app, ["analyze", "java", "module-a", "--output", "model.duckdb"])
+    assert result.exit_code == 0, result.output
+    assert calls == [(project_root.resolve(), ("module-a",), output, project_root.name)]
 
-        self.assertEqual(2, result.exit_code)
-        self.assertIn("укажите --maven", result.output)
+
+def test_java_analysis_requires_maven_layout():
+    result = CliRunner().invoke(app, ["analyze", "java", "module-a", "--output", "model.duckdb"])
+
+    assert result.exit_code == 2
+    assert "укажите --maven" in result.output

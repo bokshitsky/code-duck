@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 from typing import Annotated, Optional, Sequence
 
-import click
 import typer
+from typer._click import ClickException
 
 from codeduck.analyzer import JavaDependencyAnalyzer
 from codeduck.duckdb_export import export_to_duckdb
@@ -117,7 +117,7 @@ def main(arguments: Optional[Sequence[str]] = None) -> int:
         )
     except typer.Exit as error:
         return error.exit_code
-    except click.ClickException as error:
+    except ClickException as error:
         error.show()
         return error.exit_code
     return result if isinstance(result, int) else 0
