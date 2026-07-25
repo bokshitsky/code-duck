@@ -1,0 +1,22 @@
+[project]
+name = "codeduck"
+version = "0.1.0"
+description = "Tree-sitter based Java code model exporter to DuckDB"
+authors = [
+    {name = "Evgeny Bokshitsky",email = "e.bokshitskiy@hh.ru"}
+]
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=1.5.5",
+    "pyarrow>=25.0.0",
+    "tree-sitter>=0.25,<0.26",
+    "tree-sitter-java>=0.23,<0.24",
+]
+
+[project.scripts]
+codeduck = "codeduck.cli:main"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
