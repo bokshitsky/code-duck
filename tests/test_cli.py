@@ -1,9 +1,10 @@
 from pathlib import Path
+from typing import cast
 
 from codeduck.analyzer import JavaDependencyAnalyzer
 
 
-def test_resolves_imported_same_package_static_and_fully_qualified_classes(tmp_path):
+def test_resolves_imported_same_package_static_and_fully_qualified_classes(tmp_path: Path) -> None:
     project_root = tmp_path
     write_java(
         project_root,
@@ -51,7 +52,7 @@ def test_resolves_imported_same_package_static_and_fully_qualified_classes(tmp_p
     assert class_a["implements"] == ["example.other.ClassB"]
     assert class_a["annotated_by"] == ["example.other.ClassAnnotation"]
 
-def test_explicit_import_of_external_class_shadows_project_class_with_same_simple_name(tmp_path):
+def test_explicit_import_of_external_class_shadows_project_class_with_same_simple_name(tmp_path: Path) -> None:
     project_root = tmp_path
     write_java(
         project_root,
@@ -71,9 +72,10 @@ def test_explicit_import_of_external_class_shadows_project_class_with_same_simpl
     records = list(JavaDependencyAnalyzer(project_root, ["module-a"]).analyze())
 
     resource = next(record for record in records if record["class_name"] == "example.api.Resource")
-    assert "example.other.Param" not in resource["depends_on_classes"]
+    assert "example.other.Param" not in cast(list[str], resource["depends_on_classes"])
 
-def test_discovers_every_directory_with_pom_xml(tmp_path):
+
+def test_discovers_every_directory_with_pom_xml(tmp_path: Path) -> None:
     project_root = tmp_path
     write_java(project_root, "module-a", "example.a.A", "package example.a; class A {}")
     write_java(project_root, "parent/child", "example.b.B", "package example.b; class B {}")

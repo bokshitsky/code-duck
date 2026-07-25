@@ -5,7 +5,7 @@ import duckdb
 from codeduck.duckdb_export import JavaModelAnalyzer, write_database
 
 
-def test_exports_classes_methods_and_relations(tmp_path):
+def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
     project_root = tmp_path
     write_java(
         project_root,

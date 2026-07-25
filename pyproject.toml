@@ -16,7 +16,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pystolint-config-hh==1.1.0",
+    "pystolint[pydantic]==0.8.0",
     "pytest>=8.0",
+    "pytest-asyncio>=0.25",
 ]
 
 [project.scripts]
@@ -29,3 +32,43 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+[[tool.uv.index]]
+name = "hhdev"
+url = "https://devpi.pyn.ru/hh/hhdev/+simple/"
+
+[[tool.uv.index]]
+name = "pypi-mirror"
+url = "https://devpi.pyn.ru/root/pypi/+simple/"
+default = true
+
+[tool.uv.sources]
+pystolint = { index = "hhdev" }
+pystolint-config-hh = { index = "hhdev" }
+
+[tool.pystolint.base_tool_config]
+ruff = { package = "pystolint_config_hh", path = "config/ruff.toml" }
+mypy = { package = "pystolint_config_hh", path = "config/mypy.toml" }
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+filterwarnings = "error"
+addopts = '''
+  --asyncio-mode=auto
+  -p no:warnings
+'''
+
+[tool.ruff]
+line-length = 120
+preview = true
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+    "FA",
+]
+ignore = [
+    "UP035",
+]
