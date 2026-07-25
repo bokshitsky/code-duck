@@ -525,10 +525,11 @@ class JavaAnalyzer:
 
         imported = source.explicit_imports.get(simple_name)
         if imported is not None:
-            # Явный single-type import полностью перекрывает простое имя (правила Java),
-            # поэтому эвристики по package и уникальному имени здесь применять нельзя:
-            # для `import org.jooq.Param` имя `Param` не должно резолвиться в свой класс проекта.
-            return imported if imported in known_classes else None
+            # Явный single-type import полностью перекрывает простое имя (правила Java)
+            # и является определяющим ответом. Отдаём его FQN даже для класса вне проекта
+            # (внешняя зависимость): для `import org.jooq.Param` имя `Param` резолвится
+            # в org.jooq.Param, а не в одноимённый класс проекта.
+            return imported
 
         package_candidate = JavaAnalyzer._qualified_name(source.package_name, simple_name)
         if package_candidate in known_classes:
@@ -546,6 +547,11 @@ class JavaAnalyzer:
         candidates = classes_by_simple_name.get(simple_name, set())
         if len(candidates) == 1:
             return next(iter(candidates))
+
+        # Ничего из проекта не подошло, но одиночный wildcard-импорт однозначно задаёт
+        # пакет — можно построить FQN даже для внешнего типа.
+        if len(source.wildcard_imports) == 1:
+            return JavaAnalyzer._qualified_name(source.wildcard_imports[0], simple_name)
         return None
 
     @staticmethod
