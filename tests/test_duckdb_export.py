@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import duckdb
+import pytest
 
-from codeduck.duckdb_export import JavaModelAnalyzer, write_database
+from codeduck import duckdb_export
+from codeduck.duckdb_export import JavaModelAnalyzer, export_to_duckdb, write_database
 
 
 def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
@@ -106,6 +108,19 @@ def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
         "WHERE m.method_name = 'handles'"
     ).fetchone()
     assert method_annotation == ("org.junit.Test",)
+
+
+def test_export_checks_existing_output_before_analysis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    output = tmp_path / "model.duckdb"
+    output.write_text("existing", encoding="utf-8")
+
+    def fail_if_analyzer_is_created(*args: object, **kwargs: object) -> object:
+        raise AssertionError("analyzer must not be created when output already exists")
+
+    monkeypatch.setattr(duckdb_export, "JavaModelAnalyzer", fail_if_analyzer_is_created)
+
+    with pytest.raises(FileExistsError, match="Файл уже существует:"):
+        export_to_duckdb(tmp_path, ["module-a"], output, "demo-repo")
 
 
 def write_java(project_root: Path, module_name: str, source_dir: str, class_name: str, source: str) -> None:

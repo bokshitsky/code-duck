@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Annotated, Optional, Sequence
 
 import typer
-from typer._click import ClickException
 
 from codeduck.analyzer import JavaDependencyAnalyzer
 from codeduck.duckdb_export import export_to_duckdb
@@ -39,6 +38,12 @@ analyze_app = typer.Typer(
 app.add_typer(analyze_app, name="analyze")
 
 
+def fail(message: str, code: int = 1) -> None:
+    """Печатает пользовательскую ошибку красным цветом и завершает команду."""
+    typer.secho(message, fg=typer.colors.RED, err=True)
+    raise typer.Exit(code=code)
+
+
 @analyze_app.command("java", help="Анализ Java-кода (Tree-sitter).")
 def analyze_java(
     modules: Annotated[
@@ -59,6 +64,10 @@ def analyze_java(
         Path,
         typer.Option("-o", "--output", help="Путь к создаваемому файлу базы DuckDB."),
     ] = ...,
+    force: Annotated[
+        bool,
+        typer.Option("-f", "--force", help="Пересоздать файл базы, если он уже существует."),
+    ] = False,
     repo_name: Annotated[
         Optional[str],
         typer.Option(help="Имя репозитория (по умолчанию имя каталога project-root)."),
@@ -83,15 +92,24 @@ def analyze_java(
     if maven_all:
         module_names = JavaDependencyAnalyzer.discover_maven_modules(resolved_project_root)
         if not module_names:
-            typer.echo("В project-root не найдено ни одного Maven-модуля с pom.xml.", err=True)
-            raise typer.Exit(code=2)
+            fail("В project-root не найдено ни одного Maven-модуля с pom.xml.", code=2)
         logger.info("Найдено Maven-модулей: %d", len(module_names))
     else:
         module_names = tuple(modules)
         if not module_names:
-            typer.echo("Укажите модули позиционно или используйте --maven-all.", err=True)
-            raise typer.Exit(code=2)
-    export_to_duckdb(resolved_project_root, module_names, output, resolved_repo_name)
+            fail("Укажите модули позиционно или используйте --maven-all.", code=2)
+    try:
+        export_to_duckdb(
+            resolved_project_root,
+            module_names,
+            output,
+            resolved_repo_name,
+            force=force,
+        )
+    except FileExistsError as error:
+        fail(str(error))
+    except OSError as error:
+        fail(str(error))
 
 def main(arguments: Sequence[str] | None = None) -> int:
     try:
@@ -100,9 +118,6 @@ def main(arguments: Sequence[str] | None = None) -> int:
             prog_name="codeduck",
             standalone_mode=False,
         )
-    except ClickException as error:
-        error.show()
-        return error.exit_code
     except typer.Exit as error:
         return error.exit_code
     return 0

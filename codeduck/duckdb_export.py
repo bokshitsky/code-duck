@@ -490,18 +490,22 @@ def export_to_duckdb(
     module_names: Sequence[str],
     output: Path,
     repo_name: str,
+    force: bool = False,
 ) -> None:
     """Анализирует модули и пишет модель кода в файл базы DuckDB.
 
-    Существующий файл базы пересоздаётся.
+    Если ``force=True``, существующий файл базы будет удалён и создан заново.
+    Иначе при существующем файле выбрасывается ошибка.
     """
     with log_duration("ИТОГО"):
+        if output.exists():
+            if not force:
+                raise FileExistsError(f"Файл уже существует: {output}")
+            output.unlink()
         analyzer = JavaModelAnalyzer(project_root, module_names)
         with log_duration("Анализ исходников (всего)"):
             class_models = analyzer.analyze_model()
         output.parent.mkdir(parents=True, exist_ok=True)
-        if output.exists():
-            output.unlink()
         with connect_duckdb(output) as connection:
             with log_duration("Запись в базу (всего)"):
                 write_database(connection, repo_name, module_names, class_models)
