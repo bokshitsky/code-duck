@@ -28,7 +28,7 @@ def test_java_analysis_passes_modules_to_exporter(tmp_path: Path, monkeypatch: p
     ) -> None:
         calls.append((project_root, module_names, output_path, repo_name, force))
 
-    monkeypatch.setattr('codeduck.cli.export_to_duckdb', export_to_duckdb)
+    monkeypatch.setattr('codeduck.cli.export_java_to_duckdb', export_to_duckdb)
     result = CliRunner().invoke(
         app,
         [
@@ -65,7 +65,7 @@ def test_java_analysis_discovers_modules_with_maven_all(tmp_path: Path, monkeypa
         calls.append((project_root, module_names, output_path, repo_name, force))
 
     monkeypatch.setattr('codeduck.cli.JavaAnalyzer.discover_maven_modules', discover_maven_modules)
-    monkeypatch.setattr('codeduck.cli.export_to_duckdb', export_to_duckdb)
+    monkeypatch.setattr('codeduck.cli.export_java_to_duckdb', export_to_duckdb)
     result = CliRunner().invoke(
         app,
         [
@@ -121,7 +121,7 @@ def test_java_analysis_fails_when_output_exists(tmp_path: Path, monkeypatch: pyt
         assert force is False
         raise FileExistsError(f'Файл уже существует: {output_path}')
 
-    monkeypatch.setattr('codeduck.cli.export_to_duckdb', export_to_duckdb)
+    monkeypatch.setattr('codeduck.cli.export_java_to_duckdb', export_to_duckdb)
     result = CliRunner().invoke(
         app,
         [
@@ -154,7 +154,7 @@ def test_java_analysis_passes_force_flag_to_exporter(tmp_path: Path, monkeypatch
     ) -> None:
         calls.append((project_root, module_names, output_path, repo_name, force))
 
-    monkeypatch.setattr('codeduck.cli.export_to_duckdb', export_to_duckdb)
+    monkeypatch.setattr('codeduck.cli.export_java_to_duckdb', export_to_duckdb)
     result = CliRunner().invoke(
         app,
         [

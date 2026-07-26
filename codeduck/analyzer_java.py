@@ -103,36 +103,6 @@ class JavaAnalyzer:
         self.parser = Parser(Language(tree_sitter_java.language()))
         self._source_type_by_path: dict[Path, str] = {}
 
-    def analyze(self) -> Iterator[Mapping[str, object]]:
-        sources = list(self._read_sources(self._project_modules()))
-        all_declarations = list(self._find_declarations(sources))
-        declarations = [declaration for declaration in all_declarations if declaration.module_name in self.module_names]
-        known_classes = {declaration.class_name for declaration in all_declarations}
-        classes_by_simple_name = self._group_by_simple_name(known_classes)
-        for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
-            dependencies = self._dependencies_for(
-                declaration,
-                known_classes,
-                classes_by_simple_name,
-            )
-            implemented_interfaces = self._implemented_interfaces(
-                declaration,
-                known_classes,
-                classes_by_simple_name,
-            )
-            annotations = self._class_annotations(
-                declaration,
-                known_classes,
-                classes_by_simple_name,
-            )
-            yield {
-                'module_name': declaration.module_name,
-                'class_name': declaration.class_name,
-                'depends_on_classes': sorted(dependencies),
-                'implements': sorted(implemented_interfaces),
-                'annotated_by': sorted(annotations),
-            }
-
     def analyze_model(self) -> list[ClassModel]:
         with log_duration('Чтение и парсинг исходников'):
             sources = list(self._read_all_sources())
@@ -209,10 +179,6 @@ class JavaAnalyzer:
                 module_dir = pom_file.parent.relative_to(project_root)
                 modules.add(module_dir.as_posix())
         return tuple(sorted(modules))
-
-    def _read_sources(self, module_names: Iterable[str]) -> Iterator[JavaSource]:
-        for module_name in module_names:
-            yield from self._read_module_sources(module_name, 'main', 'prod')
 
     def _read_all_sources(self) -> Iterator[JavaSource]:
         target_modules = set(self.module_names)

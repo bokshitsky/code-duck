@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Annotated, cast
 import typer
 
 from codeduck.analyzer_java import JavaAnalyzer
-from codeduck.duckdb_export_java import export_to_duckdb
+from codeduck.duckdb_export_java import export_java_to_duckdb
 from codeduck.duckdb_export_python import export_python_to_duckdb
 
 if TYPE_CHECKING:
@@ -111,7 +111,7 @@ def analyze_java(
         fail('Укажите --output.', code=2)
     resolved_output = cast('Path', output)
     try:
-        export_to_duckdb(
+        export_java_to_duckdb(
             resolved_project_root,
             module_names,
             resolved_output,

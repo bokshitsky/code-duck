@@ -190,7 +190,7 @@ def write_database(
         )
 
 
-def export_to_duckdb(
+def export_java_to_duckdb(
     project_root: Path,
     module_names: Sequence[str],
     output: Path,

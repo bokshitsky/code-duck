@@ -5,7 +5,7 @@ import pytest
 
 from codeduck import duckdb_export_java
 from codeduck.analyzer_java import JavaAnalyzer
-from codeduck.duckdb_export_java import export_to_duckdb, write_database
+from codeduck.duckdb_export_java import export_java_to_duckdb, write_database
 
 
 def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
@@ -131,7 +131,7 @@ def test_export_checks_existing_output_before_analysis(tmp_path: Path, monkeypat
     monkeypatch.setattr(duckdb_export_java, 'JavaAnalyzer', fail_if_analyzer_is_created)
 
     with pytest.raises(FileExistsError, match='Файл уже существует:'):
-        export_to_duckdb(tmp_path, ['module-a'], output, 'demo-repo')
+        export_java_to_duckdb(tmp_path, ['module-a'], output, 'demo-repo')
 
 
 def write_java(project_root: Path, module_name: str, source_dir: str, class_name: str, source: str) -> None:
