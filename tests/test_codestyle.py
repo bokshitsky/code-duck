@@ -1,14 +1,24 @@
+import subprocess
+import sys
 from pathlib import Path
-
-from pystolint.api import check
-from pystolint.tools import Tool
 
 ROOT = Path(__file__).parent.parent
 MODULES = ['codeduck', 'tests']
 
 
-def test_codestyle() -> None:
-    result = check(MODULES, local_toml_path_provided=f'{ROOT}/pyproject.toml', tools=[Tool.RUFF, Tool.MYPY])
+def _run(tool: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, '-m', tool, *(['check'] if tool == 'ruff' else []), *MODULES],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
-    assert len(result.items) == 0, '\n'.join(str(item) for item in result.items)
-    assert len(result.errors) == 0, '\n'.join(error for error in result.errors)
+
+def test_codestyle() -> None:
+    ruff = _run('ruff')
+    assert ruff.returncode == 0, ruff.stdout + ruff.stderr
+
+    mypy = _run('mypy')
+    assert mypy.returncode == 0, mypy.stdout + mypy.stderr

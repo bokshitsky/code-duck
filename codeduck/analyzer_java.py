@@ -1,4 +1,5 @@
-"""Анализ Java-кода по дереву разбора Tree-sitter.
+"""
+Анализ Java-кода по дереву разбора Tree-sitter.
 
 Строит модель классов, методов, зависимостей, наследования и аннотаций для
 целевых Maven-модулей, а также умеет отдавать плоские записи зависимостей.
@@ -9,35 +10,38 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
-from typing import DefaultDict, Iterable, Iterator, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING
 
 import tree_sitter_java
 from tree_sitter import Language, Node, Parser, Tree
 
 from codeduck.utils.measure import log_duration
 
-logger = logging.getLogger("codeduck.analyzer_java")
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
+    from pathlib import Path
+
+logger = logging.getLogger('codeduck.analyzer_java')
 
 TYPE_DECLARATION_TYPES = {
-    "annotation_type_declaration",
-    "class_declaration",
-    "enum_declaration",
-    "interface_declaration",
-    "record_declaration",
+    'annotation_type_declaration',
+    'class_declaration',
+    'enum_declaration',
+    'interface_declaration',
+    'record_declaration',
 }
 TYPE_REFERENCE_TYPES = {
-    "scoped_type_identifier",
-    "type_identifier",
+    'scoped_type_identifier',
+    'type_identifier',
 }
 ANNOTATION_TYPES = {
-    "annotation",
-    "marker_annotation",
+    'annotation',
+    'marker_annotation',
 }
 METHOD_TYPES = {
-    "compact_constructor_declaration",
-    "constructor_declaration",
-    "method_declaration",
+    'compact_constructor_declaration',
+    'constructor_declaration',
+    'method_declaration',
 }
 
 
@@ -51,8 +55,8 @@ class JavaSource:
     tree: Tree
     package_name: str
     explicit_imports: Mapping[str, str]
-    wildcard_imports: Tuple[str, ...]
-    static_imports: Tuple[str, ...]
+    wildcard_imports: tuple[str, ...]
+    static_imports: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -71,8 +75,8 @@ class MethodModel:
 
     name: str
     params: str
-    return_type: Optional[str]
-    annotations: Tuple[str, ...]
+    return_type: str | None
+    annotations: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -84,10 +88,10 @@ class ClassModel:
     fqn: str
     package_name: str
     simple_name: str
-    methods: Tuple[MethodModel, ...]
-    dependencies: Tuple[str, ...]
-    supertypes: Tuple[Tuple[str, str], ...]
-    annotations: Tuple[str, ...]
+    methods: tuple[MethodModel, ...]
+    dependencies: tuple[str, ...]
+    supertypes: tuple[tuple[str, str], ...]
+    annotations: tuple[str, ...]
 
 
 class JavaAnalyzer:
@@ -102,11 +106,7 @@ class JavaAnalyzer:
     def analyze(self) -> Iterator[Mapping[str, object]]:
         sources = list(self._read_sources(self._project_modules()))
         all_declarations = list(self._find_declarations(sources))
-        declarations = [
-            declaration
-            for declaration in all_declarations
-            if declaration.module_name in self.module_names
-        ]
+        declarations = [declaration for declaration in all_declarations if declaration.module_name in self.module_names]
         known_classes = {declaration.class_name for declaration in all_declarations}
         classes_by_simple_name = self._group_by_simple_name(known_classes)
         for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
@@ -126,35 +126,31 @@ class JavaAnalyzer:
                 classes_by_simple_name,
             )
             yield {
-                "module_name": declaration.module_name,
-                "class_name": declaration.class_name,
-                "depends_on_classes": sorted(dependencies),
-                "implements": sorted(implemented_interfaces),
-                "annotated_by": sorted(annotations),
+                'module_name': declaration.module_name,
+                'class_name': declaration.class_name,
+                'depends_on_classes': sorted(dependencies),
+                'implements': sorted(implemented_interfaces),
+                'annotated_by': sorted(annotations),
             }
 
-    def analyze_model(self) -> List[ClassModel]:
-        with log_duration("Чтение и парсинг исходников (tree-sitter)"):
+    def analyze_model(self) -> list[ClassModel]:
+        with log_duration('Чтение и парсинг исходников (tree-sitter)'):
             sources = list(self._read_all_sources())
-        logger.info("Файлов распарсено: %d", len(sources))
+        logger.info('Файлов распарсено: %d', len(sources))
 
-        with log_duration("Поиск деклараций классов"):
+        with log_duration('Поиск деклараций классов'):
             all_declarations = list(self._find_declarations(sources))
         target_modules = set(self.module_names)
-        declarations = [
-            declaration
-            for declaration in all_declarations
-            if declaration.module_name in target_modules
-        ]
+        declarations = [declaration for declaration in all_declarations if declaration.module_name in target_modules]
         known_classes = {declaration.class_name for declaration in all_declarations}
         classes_by_simple_name = self._group_by_simple_name(known_classes)
 
         models = []
-        with log_duration("Анализ модели (зависимости/методы/наследование/аннотации)"):
+        with log_duration('Анализ модели (зависимости/методы/наследование/аннотации)'):
             for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
                 source_type = self._source_type_by_path[declaration.source.path]
                 package_name = declaration.source.package_name
-                simple_name = declaration.class_name.rsplit(".", 1)[-1]
+                simple_name = declaration.class_name.rsplit('.', 1)[-1]
                 models.append(
                     ClassModel(
                         module_name=declaration.module_name,
@@ -172,28 +168,43 @@ class JavaAnalyzer:
                         ),
                     )
                 )
-        logger.info("Классов в модели: %d", len(models))
+        logger.info('Классов в модели: %d', len(models))
         return models
 
-    def _project_modules(self) -> Tuple[str, ...]:
-        """Возвращает Maven-модули для полного индекса проекта."""
+    def _project_modules(self) -> tuple[str, ...]:
+        """
+        Возвращает Maven-модули для полного индекса проекта.
+
+        Returns:
+            Кортеж имён обнаруженных Maven-модулей.
+
+        Raises:
+            ValueError: Если у части указанных модулей нет ``pom.xml``.
+
+        """
         discovered_modules = self.discover_maven_modules(self.project_root)
         missing_modules = set(self.module_names).difference(discovered_modules)
         if missing_modules:
-            missing = ", ".join(sorted(missing_modules))
-            raise ValueError("В модулях нет pom.xml: %s" % missing)
+            missing = ', '.join(sorted(missing_modules))
+            msg = f'В модулях нет pom.xml: {missing}'
+            raise ValueError(msg)
         return discovered_modules
 
     @staticmethod
-    def discover_maven_modules(project_root: Path) -> Tuple[str, ...]:
-        """Находит все Maven-модули.
+    def discover_maven_modules(project_root: Path) -> tuple[str, ...]:
+        """
+        Находит все Maven-модули.
 
         Модулем считается каталог с `pom.xml` на любой глубине проекта.
         Имя модуля — его путь относительно корня в posix-виде (например,
         `hh-fixture/server`).
+
+        Returns:
+            Кортеж имён найденных модулей.
+
         """
         modules = set()
-        for pom_file in project_root.rglob("pom.xml"):
+        for pom_file in project_root.rglob('pom.xml'):
             if pom_file.is_file():
                 module_dir = pom_file.parent.relative_to(project_root)
                 modules.add(module_dir.as_posix())
@@ -201,20 +212,20 @@ class JavaAnalyzer:
 
     def _read_sources(self, module_names: Iterable[str]) -> Iterator[JavaSource]:
         for module_name in module_names:
-            yield from self._read_module_sources(module_name, "main", "prod")
+            yield from self._read_module_sources(module_name, 'main', 'prod')
 
     def _read_all_sources(self) -> Iterator[JavaSource]:
         target_modules = set(self.module_names)
         for module_name in self._project_modules():
-            yield from self._read_module_sources(module_name, "main", "prod")
+            yield from self._read_module_sources(module_name, 'main', 'prod')
             if module_name in target_modules:
-                yield from self._read_module_sources(module_name, "test", "test")
+                yield from self._read_module_sources(module_name, 'test', 'test')
 
     def _read_module_sources(self, module_name: str, source_dir: str, source_type: str) -> Iterator[JavaSource]:
-        source_root = self.project_root / module_name / "src" / source_dir / "java"
+        source_root = self.project_root / module_name / 'src' / source_dir / 'java'
         if not source_root.is_dir():
             return
-        for path in sorted(source_root.rglob("*.java")):
+        for path in sorted(source_root.rglob('*.java')):
             source = path.read_bytes()
             tree = self.parser.parse(source)
             package_name = self._package_name(tree.root_node, source)
@@ -236,7 +247,7 @@ class JavaAnalyzer:
             for child in source.tree.root_node.named_children:
                 if child.type not in TYPE_DECLARATION_TYPES:
                     continue
-                name = child.child_by_field_name("name")
+                name = child.child_by_field_name('name')
                 if name is None:
                     continue
                 simple_name = self._text(name, source.source)
@@ -246,9 +257,9 @@ class JavaAnalyzer:
     def _dependencies_for(
         self,
         declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Set[str]:
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> set[str]:
         used_names = self._used_type_names(declaration)
         dependencies = set()
 
@@ -278,16 +289,16 @@ class JavaAnalyzer:
     def _implemented_interfaces(
         self,
         declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Set[str]:
-        if declaration.node.type not in {"class_declaration", "enum_declaration", "record_declaration"}:
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> set[str]:
+        if declaration.node.type not in {'class_declaration', 'enum_declaration', 'record_declaration'}:
             return set()
 
         interface_nodes = [
             child
             for child in declaration.node.named_children
-            if child.type in {"implements_interfaces", "super_interfaces"}
+            if child.type in {'implements_interfaces', 'super_interfaces'}
         ]
         implemented_interfaces = set()
         for interface_node in interface_nodes:
@@ -308,9 +319,9 @@ class JavaAnalyzer:
     def _class_annotations(
         self,
         declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Set[str]:
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> set[str]:
         return self._node_annotations(
             declaration.node,
             declaration.source,
@@ -322,12 +333,12 @@ class JavaAnalyzer:
         self,
         node: Node,
         source: JavaSource,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Set[str]:
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> set[str]:
         annotations = set()
         for child in node.named_children:
-            if child.type != "modifiers":
+            if child.type != 'modifiers':
                 continue
             for annotation in child.named_children:
                 if annotation.type not in ANNOTATION_TYPES:
@@ -346,14 +357,14 @@ class JavaAnalyzer:
     @staticmethod
     def _annotation_name(annotation: Node, source: bytes) -> str:
         text = JavaAnalyzer._text(annotation, source).strip()
-        return text.removeprefix("@").partition("(")[0].strip()
+        return text.removeprefix('@').partition('(')[0].strip()
 
     def _resolve_annotation_name(
         self,
         annotation_name: str,
         source: JavaSource,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
     ) -> str:
         resolved_name = self._resolve_name(
             annotation_name,
@@ -363,7 +374,7 @@ class JavaAnalyzer:
         )
         if resolved_name is not None:
             return resolved_name
-        if "." in annotation_name:
+        if '.' in annotation_name:
             return annotation_name
 
         imported_name = source.explicit_imports.get(annotation_name)
@@ -376,18 +387,18 @@ class JavaAnalyzer:
     def _methods(
         self,
         declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
     ) -> Iterator[MethodModel]:
-        body = declaration.node.child_by_field_name("body")
+        body = declaration.node.child_by_field_name('body')
         if body is None:
             return
         source = declaration.source.source
         for method_node in self._method_nodes(body):
-            name_node = method_node.child_by_field_name("name")
+            name_node = method_node.child_by_field_name('name')
             if name_node is None:
                 continue
-            return_type_node = method_node.child_by_field_name("type")
+            return_type_node = method_node.child_by_field_name('type')
             annotations = self._node_annotations(
                 method_node,
                 declaration.source,
@@ -401,53 +412,54 @@ class JavaAnalyzer:
                 annotations=tuple(sorted(annotations)),
             )
 
-    def _method_nodes(self, body: Node) -> Iterator[Node]:
+    @staticmethod
+    def _method_nodes(body: Node) -> Iterator[Node]:
         for child in body.named_children:
             if child.type in METHOD_TYPES:
                 yield child
-            elif child.type == "enum_body_declarations":
+            elif child.type == 'enum_body_declarations':
                 for nested in child.named_children:
                     if nested.type in METHOD_TYPES:
                         yield nested
 
     def _method_params(self, method_node: Node, source: bytes) -> str:
-        params_node = method_node.child_by_field_name("parameters")
+        params_node = method_node.child_by_field_name('parameters')
         if params_node is None:
-            return ""
+            return ''
         param_types = []
         for parameter in params_node.named_children:
-            if parameter.type == "formal_parameter":
-                type_node = parameter.child_by_field_name("type")
+            if parameter.type == 'formal_parameter':
+                type_node = parameter.child_by_field_name('type')
                 if type_node is not None:
                     param_types.append(self._text(type_node, source))
-            elif parameter.type == "spread_parameter":
+            elif parameter.type == 'spread_parameter':
                 type_node = next(
-                    (child for child in parameter.named_children if child.type not in {"modifiers", "variable_declarator"}),
+                    (
+                        child
+                        for child in parameter.named_children
+                        if child.type not in {'modifiers', 'variable_declarator'}
+                    ),
                     None,
                 )
                 if type_node is not None:
-                    param_types.append(self._text(type_node, source) + "...")
-        return ", ".join(param_types)
+                    param_types.append(self._text(type_node, source) + '...')
+        return ', '.join(param_types)
 
     def _supertypes(
         self,
         declaration: ClassDeclaration,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> List[Tuple[str, str]]:
-        result = []
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> list[tuple[str, str]]:
         implemented = self._implemented_interfaces(declaration, known_classes, classes_by_simple_name)
-        for interface_fqn in sorted(implemented):
-            result.append((interface_fqn, "implements"))
+        result = [(interface_fqn, 'implements') for interface_fqn in sorted(implemented)]
 
         extends_containers = []
-        superclass = declaration.node.child_by_field_name("superclass")
+        superclass = declaration.node.child_by_field_name('superclass')
         if superclass is not None:
             extends_containers.append(superclass)
         extends_containers.extend(
-            child
-            for child in declaration.node.named_children
-            if child.type == "extends_interfaces"
+            child for child in declaration.node.named_children if child.type == 'extends_interfaces'
         )
 
         extended = set()
@@ -463,29 +475,28 @@ class JavaAnalyzer:
                 )
                 if resolved is not None and resolved != declaration.class_name:
                     extended.add(resolved)
-        for super_fqn in sorted(extended):
-            result.append((super_fqn, "extends"))
+        result.extend((super_fqn, 'extends') for super_fqn in sorted(extended))
         return result
 
-    def _used_type_names(self, declaration: ClassDeclaration) -> Set[str]:
+    def _used_type_names(self, declaration: ClassDeclaration) -> set[str]:
         names = set()
         declared_names = set()
 
         for node in self._walk(declaration.node):
             if node.type in TYPE_DECLARATION_TYPES:
-                name = node.child_by_field_name("name")
+                name = node.child_by_field_name('name')
                 if name is not None:
                     declared_names.add(self._text(name, declaration.source.source))
 
             if node.type in TYPE_REFERENCE_TYPES:
                 names.add(self._text(node, declaration.source.source))
 
-            if node.type == "field_access":
+            if node.type == 'field_access':
                 names.update(self._class_prefixes(node, declaration.source.source))
 
             # Tree-sitter представляет квалификатор статического вызова Foo.call()
             # обычным identifier, поэтому берём идентификаторы с заглавной буквы.
-            if node.type == "identifier":
+            if node.type == 'identifier':
                 identifier = self._text(node, declaration.source.source)
                 if identifier[:1].isupper():
                     names.add(identifier)
@@ -494,30 +505,37 @@ class JavaAnalyzer:
         return names
 
     @staticmethod
-    def _class_prefixes(node: Node, source: bytes) -> Set[str]:
-        """Находит префиксы FQN в выражениях вида ru.hh.Class.CONSTANT."""
+    def _class_prefixes(node: Node, source: bytes) -> set[str]:
+        """
+        Находит префиксы FQN в выражениях вида ru.hh.Class.CONSTANT.
+
+        Returns:
+            Множество возможных префиксов FQN.
+
+        """
         text = JavaAnalyzer._text(node, source)
-        if any(character in text for character in "()[] <>+-*/=?!:\"'"):
+        if any(character in text for character in '()[] <>+-*/=?!:"\''):
             return set()
-        parts = text.split(".")
+        parts = text.split('.')
         if not all(part.isidentifier() for part in parts):
             return set()
-        return {".".join(parts[:index]) for index in range(1, len(parts))}
+        return {'.'.join(parts[:index]) for index in range(1, len(parts))}
 
+    # Резолв имени по правилам Java даёт несколько равнозначных исходов — несколько return ожидаемо.
     @staticmethod
-    def _resolve_name(
+    def _resolve_name(  # noqa: PLR0911
         name: str,
         source: JavaSource,
-        known_classes: Set[str],
-        classes_by_simple_name: Mapping[str, Set[str]],
-    ) -> Optional[str]:
+        known_classes: set[str],
+        classes_by_simple_name: Mapping[str, set[str]],
+    ) -> str | None:
         if name in known_classes:
             return name
 
-        simple_name = name.rsplit(".", 1)[-1]
-        if "." in name:
+        simple_name = name.rsplit('.', 1)[-1]
+        if '.' in name:
             # Для ссылки Outer.Inner достаточно зависимости от доступного внешнего класса.
-            first_name = name.split(".", 1)[0]
+            first_name = name.split('.', 1)[0]
             imported = source.explicit_imports.get(first_name)
             if imported in known_classes:
                 return imported
@@ -536,8 +554,7 @@ class JavaAnalyzer:
             return package_candidate
 
         wildcard_candidates = {
-            JavaAnalyzer._qualified_name(package_name, simple_name)
-            for package_name in source.wildcard_imports
+            JavaAnalyzer._qualified_name(package_name, simple_name) for package_name in source.wildcard_imports
         }.intersection(known_classes)
         if len(wildcard_candidates) == 1:
             return next(iter(wildcard_candidates))
@@ -555,39 +572,39 @@ class JavaAnalyzer:
         return None
 
     @staticmethod
-    def _group_by_simple_name(class_names: Iterable[str]) -> Mapping[str, Set[str]]:
-        result: DefaultDict[str, Set[str]] = defaultdict(set)
+    def _group_by_simple_name(class_names: Iterable[str]) -> Mapping[str, set[str]]:
+        result: defaultdict[str, set[str]] = defaultdict(set)
         for class_name in class_names:
-            result[class_name.rsplit(".", 1)[-1]].add(class_name)
+            result[class_name.rsplit('.', 1)[-1]].add(class_name)
         return result
 
     @staticmethod
     def _package_name(root: Node, source: bytes) -> str:
         for child in root.named_children:
-            if child.type == "package_declaration":
+            if child.type == 'package_declaration':
                 text = JavaAnalyzer._text(child, source)
-                return text.removeprefix("package").removesuffix(";").strip()
-        return ""
+                return text.removeprefix('package').removesuffix(';').strip()
+        return ''
 
     @staticmethod
-    def _imports(root: Node, source: bytes) -> Tuple[Mapping[str, str], Tuple[str, ...], Tuple[str, ...]]:
+    def _imports(root: Node, source: bytes) -> tuple[Mapping[str, str], tuple[str, ...], tuple[str, ...]]:
         explicit_imports = {}
         wildcard_imports = []
         static_imports = []
         for child in root.named_children:
-            if child.type != "import_declaration":
+            if child.type != 'import_declaration':
                 continue
-            text = JavaAnalyzer._text(child, source).removesuffix(";").strip()
-            is_static = text.startswith("import static ")
-            imported_name = text.removeprefix("import static ").removeprefix("import ").strip()
+            text = JavaAnalyzer._text(child, source).removesuffix(';').strip()
+            is_static = text.startswith('import static ')
+            imported_name = text.removeprefix('import static ').removeprefix('import ').strip()
             if is_static:
-                owner, _, _ = imported_name.rpartition(".")
+                owner, _, _ = imported_name.rpartition('.')
                 if owner:
                     static_imports.append(owner)
-            elif imported_name.endswith(".*"):
+            elif imported_name.endswith('.*'):
                 wildcard_imports.append(imported_name[:-2])
             else:
-                explicit_imports[imported_name.rsplit(".", 1)[-1]] = imported_name
+                explicit_imports[imported_name.rsplit('.', 1)[-1]] = imported_name
         return explicit_imports, tuple(wildcard_imports), tuple(static_imports)
 
     @staticmethod
@@ -598,8 +615,8 @@ class JavaAnalyzer:
 
     @staticmethod
     def _text(node: Node, source: bytes) -> str:
-        return source[node.start_byte:node.end_byte].decode("utf-8")
+        return source[node.start_byte : node.end_byte].decode('utf-8')
 
     @staticmethod
     def _qualified_name(package_name: str, simple_name: str) -> str:
-        return "%s.%s" % (package_name, simple_name) if package_name else simple_name
+        return f'{package_name}.{simple_name}' if package_name else simple_name
