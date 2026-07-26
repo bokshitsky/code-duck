@@ -1,5 +1,5 @@
 """
-Анализ Python-кода по дереву разбора Tree-sitter.
+Анализ Python-кода по дереву разбора.
 
 Строит модель пакетов, модулей, классов, функций/методов, импортов и вызовов для
 переданных каталогов-пакетов. Каждый каталог ``-p`` трактуется как корневой пакет:
@@ -117,7 +117,7 @@ class PythonAnalyzer:
     def analyze(self) -> tuple[list[PackageModel], list[ModuleModel]]:
         packages: dict[str, PackageModel] = {}
         modules: list[ModuleModel] = []
-        with log_duration('Чтение и парсинг исходников (tree-sitter)'):
+        with log_duration('Чтение и парсинг исходников'):
             for package_dir in self.package_dirs:
                 root_parent = package_dir.parent
                 modules.extend(

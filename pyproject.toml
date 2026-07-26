@@ -1,7 +1,7 @@
 [project]
 name = "codeduck"
 version = "0.1.0"
-description = "Tree-sitter based Java code model exporter to DuckDB"
+description = "Java code model exporter to DuckDB"
 authors = [
     {name = "Evgeny Bokshitsky",email = "e.bokshitskiy@hh.ru"}
 ]

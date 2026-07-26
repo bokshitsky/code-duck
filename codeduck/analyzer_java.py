@@ -1,5 +1,5 @@
 """
-Анализ Java-кода по дереву разбора Tree-sitter.
+Анализ Java-кода по дереву разбора.
 
 Строит модель классов, методов, зависимостей, наследования и аннотаций для
 целевых Maven-модулей, а также умеет отдавать плоские записи зависимостей.
@@ -134,7 +134,7 @@ class JavaAnalyzer:
             }
 
     def analyze_model(self) -> list[ClassModel]:
-        with log_duration('Чтение и парсинг исходников (tree-sitter)'):
+        with log_duration('Чтение и парсинг исходников'):
             sources = list(self._read_all_sources())
         logger.info('Файлов распарсено: %d', len(sources))
 
@@ -494,8 +494,8 @@ class JavaAnalyzer:
             if node.type == 'field_access':
                 names.update(self._class_prefixes(node, declaration.source.source))
 
-            # Tree-sitter представляет квалификатор статического вызова Foo.call()
-            # обычным identifier, поэтому берём идентификаторы с заглавной буквы.
+            # Квалификатор статического вызова Foo.call() представлен обычным
+            # identifier, поэтому берём идентификаторы с заглавной буквы.
             if node.type == 'identifier':
                 identifier = self._text(node, declaration.source.source)
                 if identifier[:1].isupper():

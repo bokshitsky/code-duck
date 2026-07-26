@@ -54,7 +54,7 @@ def fail(message: str, code: int = 1) -> None:
     raise typer.Exit(code=code)
 
 
-@analyze_app.command('java', help='Анализ Java-кода (Tree-sitter).')
+@analyze_app.command('java', help='Анализ Java-кода.')
 def analyze_java(
     modules: Annotated[
         list[str] | None,
@@ -124,7 +124,7 @@ def analyze_java(
         fail(str(error))
 
 
-@analyze_app.command('python', help='Анализ Python-кода (Tree-sitter).')
+@analyze_app.command('python', help='Анализ Python-кода.')
 def analyze_python(
     packages: Annotated[
         list[Path] | None,
