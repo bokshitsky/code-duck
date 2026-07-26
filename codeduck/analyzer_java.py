@@ -50,6 +50,7 @@ class JavaSource:
     """Распарсенный Java-файл и информация, нужная для резолвинга имён."""
 
     module_name: str
+    source_type: str
     path: Path
     source: bytes
     tree: Tree
@@ -64,6 +65,7 @@ class ClassDeclaration:
     """Декларация верхнеуровневого Java-класса."""
 
     module_name: str
+    source_type: str
     class_name: str
     source: JavaSource
     node: Node
@@ -101,7 +103,6 @@ class JavaAnalyzer:
         self.project_root = project_root
         self.module_names = tuple(module_names)
         self.parser = Parser(Language(tree_sitter_java.language()))
-        self._source_type_by_path: dict[Path, str] = {}
 
     def analyze_model(self) -> list[ClassModel]:
         with log_duration('Чтение и парсинг исходников'):
@@ -116,13 +117,12 @@ class JavaAnalyzer:
         models = []
         with log_duration('Анализ модели (зависимости/методы/наследование/аннотации)'):
             for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
-                source_type = self._source_type_by_path[declaration.source.path]
                 package_name = declaration.source.package_name
                 simple_name = declaration.class_name.rsplit('.', 1)[-1]
                 models.append(
                     ClassModel(
                         module_name=declaration.module_name,
-                        source_type=source_type,
+                        source_type=declaration.source_type,
                         fqn=declaration.class_name,
                         package_name=package_name,
                         simple_name=simple_name,
@@ -173,9 +173,9 @@ class JavaAnalyzer:
             tree = self.parser.parse(source)
             package_name = self._package_name(tree.root_node, source)
             explicit_imports, wildcard_imports, static_imports = self._imports(tree.root_node, source)
-            self._source_type_by_path[path] = source_type
             yield JavaSource(
                 module_name=module_name,
+                source_type=source_type,
                 path=path,
                 source=source,
                 tree=tree,
@@ -195,7 +195,7 @@ class JavaAnalyzer:
                     continue
                 simple_name = self._text(name, source.source)
                 class_name = self._qualified_name(source.package_name, simple_name)
-                yield ClassDeclaration(source.module_name, class_name, source, child)
+                yield ClassDeclaration(source.module_name, source.source_type, class_name, source, child)
 
     def _dependencies_for(
         self,
