@@ -39,6 +39,31 @@ wildcard-import'ам, классам из текущего package и уника
 проиндексированных исходниках. Поэтому связь находится и для класса без import,
 если его можно однозначно определить по исходному коду.
 
+## Python
+
+Команда `codeduck analyze python` анализирует переданные каталоги-пакеты.
+Каждый `-p/--package` трактуется как корневой пакет: имя каталога становится
+верхним элементом dotted-имени модуля (`-p /src/myapp` → `myapp/sub/mod.py` =
+`myapp.sub.mod`). Рекурсивно берутся все `.py`; `__init__.py` представляет сам
+пакет.
+
+Извлекаются пакеты, модули, классы (в т.ч. вложенные), функции и методы (с
+параметрами, аннотацией возврата, декораторами, признаками метода/`async`),
+импорты и вызовы. Для вызовов всегда сохраняется сырое выражение, а
+`resolved_target` заполняется best-effort — по импортам, локальным определениям и
+`self` — иначе остаётся `NULL`.
+
+```bash
+uv run codeduck analyze python \
+  -p /path/to/myapp -p /path/to/otherpkg \
+  --output model.duckdb \
+  --repo-name my-repo
+```
+
+Можно указать несколько `-p`. Если файл базы уже существует, используйте `-f`,
+чтобы пересоздать его. `--repo-name` (можно и `--repo_name`) по умолчанию — имя
+первого каталога-пакета.
+
 ## MCP-сервер (`codeduck mcp`)
 
 Команда `codeduck mcp` поднимает локальный MCP-сервер (транспорт stdio, на базе
@@ -77,3 +102,19 @@ uv run codeduck mcp
   типа в коде)}.
 - `java_method_annotations(method_id, annotation_fqn)` — аннотации метода
   (имена разрешаются до FQN там, где это возможно).
+
+Таблицы Python (`codeduck analyze python`):
+
+- `python_packages(package_id, repo_id, name, path)` — пакеты (каталоги), включая
+  namespace-предков; `name` dotted, `path` posix.
+- `python_modules(module_id, package_id, repo_id, name, path)` — модули (`.py`);
+  `__init__.py` представляет сам пакет.
+- `python_imports(import_id, module_id, kind, imported_name, alias)` — импорты
+  модуля; `kind` ∈ {`import`, `from`}, `alias` — связанное имя при `as` (иначе NULL).
+- `python_classes(class_id, module_id, name, qualified_name, bases, decorators, lineno)` —
+  классы любой вложенности; `bases`/`decorators` — сырой текст через запятую.
+- `python_functions(function_id, module_id, class_id, name, qualified_name, params, returns, decorators, is_method, is_async, lineno)` —
+  функции и методы; `class_id` — класс-владелец метода (NULL для функции модуля).
+- `python_calls(call_id, module_id, caller_function_id, callee_expr, callee_name, resolved_target, lineno)` —
+  вызовы; `caller_function_id` — обрамляющая функция (NULL для кода уровня модуля),
+  `resolved_target` — best-effort FQN цели (NULL, если не определено однозначно).

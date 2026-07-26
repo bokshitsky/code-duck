@@ -3,9 +3,9 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from codeduck import duckdb_export
+from codeduck import duckdb_export_java
 from codeduck.analyzer_java import JavaAnalyzer
-from codeduck.duckdb_export import export_to_duckdb, write_database
+from codeduck.duckdb_export_java import export_to_duckdb, write_database
 
 
 def test_exports_classes_methods_and_relations(tmp_path: Path) -> None:
@@ -127,7 +127,7 @@ def test_export_checks_existing_output_before_analysis(tmp_path: Path, monkeypat
     def fail_if_analyzer_is_created(*args: object, **kwargs: object) -> object:
         raise AssertionError("analyzer must not be created when output already exists")
 
-    monkeypatch.setattr(duckdb_export, "JavaAnalyzer", fail_if_analyzer_is_created)
+    monkeypatch.setattr(duckdb_export_java, "JavaAnalyzer", fail_if_analyzer_is_created)
 
     with pytest.raises(FileExistsError, match="Файл уже существует:"):
         export_to_duckdb(tmp_path, ["module-a"], output, "demo-repo")

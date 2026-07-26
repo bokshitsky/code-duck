@@ -7,7 +7,7 @@
 - Основной код: `codeduck/`
 - Тесты: `tests/`
 - CLI: `codeduck/cli.py`
-- Экспорт DuckDB: `codeduck/duckdb_export.py`
+- Экспорт DuckDB: `codeduck/duckdb_export_java.py`, `codeduck/duckdb_export_python.py`
 - Зависимости и настройки: `pyproject.toml`, `uv.lock`
 
 ## Разработка

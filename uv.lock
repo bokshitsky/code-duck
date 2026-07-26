@@ -211,6 +211,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "tree-sitter" },
     { name = "tree-sitter-java" },
+    { name = "tree-sitter-python" },
     { name = "typer" },
 ]
 
@@ -229,6 +230,7 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=25.0.0" },
     { name = "tree-sitter", specifier = ">=0.25,<0.26" },
     { name = "tree-sitter-java", specifier = ">=0.23,<0.24" },
+    { name = "tree-sitter-python", specifier = ">=0.23,<0.24" },
     { name = "typer", specifier = ">=0.15" },
 ]
 
@@ -1400,6 +1402,21 @@ wheels = [
     { url = "https://devpi.pyn.ru/root/pypi/+f/aae/84449e330363b/tree_sitter_java-0.23.5-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:aae84449e330363b55b14a2af0585e4e0dae75eb64ea509b7e5b0e1de536846a" },
     { url = "https://devpi.pyn.ru/root/pypi/+f/1ee/45e790f8d31d4/tree_sitter_java-0.23.5-cp39-abi3-win_amd64.whl", hash = "sha256:1ee45e790f8d31d416bc84a09dac2e2c6bc343e89b8a2e1d550513498eedfde7" },
     { url = "https://devpi.pyn.ru/root/pypi/+f/402/efe136104c560/tree_sitter_java-0.23.5-cp39-abi3-win_arm64.whl", hash = "sha256:402efe136104c5603b429dc26c7e75ae14faaca54cfd319ecc41c8f2534750f4" },
+]
+
+[[package]]
+name = "tree-sitter-python"
+version = "0.23.6"
+source = { registry = "https://devpi.pyn.ru/root/pypi/+simple/" }
+sdist = { url = "https://devpi.pyn.ru/root/pypi/+f/354/bfa0a2f921743/tree_sitter_python-0.23.6.tar.gz", hash = "sha256:354bfa0a2f9217431764a631516f85173e9711af2c13dbd796a8815acfe505d9" }
+wheels = [
+    { url = "https://devpi.pyn.ru/root/pypi/+f/28f/bec8f74eeb2b3/tree_sitter_python-0.23.6-cp39-abi3-macosx_10_9_x86_64.whl", hash = "sha256:28fbec8f74eeb2b30292d97715e60fac9ccf8a8091ce19b9d93e9b580ed280fb" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/680/b710051b144fe/tree_sitter_python-0.23.6-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:680b710051b144fedf61c95197db0094f2245e82551bf7f0c501356333571f7a" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/8a9/dcef55507b656/tree_sitter_python-0.23.6-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8a9dcef55507b6567207e8ee0a6b053d0688019b47ff7f26edc1764b7f4dc0a4" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/29d/acdc0cd2f64e5/tree_sitter_python-0.23.6-cp39-abi3-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:29dacdc0cd2f64e55e61d96c6906533ebb2791972bec988450c46cce60092f5d" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/7e0/48733c36f564b/tree_sitter_python-0.23.6-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:7e048733c36f564b379831689006801feb267d8194f9e793fbb395ef1723335d" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/a24/027248399fb41/tree_sitter_python-0.23.6-cp39-abi3-win_amd64.whl", hash = "sha256:a24027248399fb41594b696f929f9956828ae7cc85596d9f775e6c239cd0c2be" },
+    { url = "https://devpi.pyn.ru/root/pypi/+f/713/34371bd73d5fe/tree_sitter_python-0.23.6-cp39-abi3-win_arm64.whl", hash = "sha256:71334371bd73d5fe080aed39fbff49ed8efb9506edebe16795b0c7567ed6a272" },
 ]
 
 [[package]]

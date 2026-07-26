@@ -171,3 +171,64 @@ def test_java_analysis_passes_force_flag_to_exporter(tmp_path: Path, monkeypatch
 
     assert result.exit_code == 0, result.output
     assert calls == [(project_root.resolve(), ("module-a",), output, project_root.name, True)]
+
+
+def test_python_analysis_is_registered_under_analyze() -> None:
+    result = CliRunner().invoke(app, ["analyze", "--help"])
+
+    assert result.exit_code == 0
+    assert "python" in result.output
+
+
+def test_python_analysis_passes_packages_to_exporter(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    package_a = tmp_path / "myapp"
+    package_b = tmp_path / "otherpkg"
+    package_a.mkdir()
+    package_b.mkdir()
+    output = tmp_path / "model.duckdb"
+    calls: list[tuple[Sequence[Path], Path, str, bool]] = []
+
+    def export_python_to_duckdb(
+        package_dirs: Sequence[Path],
+        output_path: Path,
+        repo_name: str,
+        force: bool = False,
+    ) -> None:
+        calls.append((list(package_dirs), output_path, repo_name, force))
+
+    monkeypatch.setattr("codeduck.cli.export_python_to_duckdb", export_python_to_duckdb)
+    result = CliRunner().invoke(
+        app,
+        [
+            "analyze",
+            "python",
+            "-p",
+            str(package_a),
+            "-p",
+            str(package_b),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    # repo_name по умолчанию — имя первого каталога-пакета.
+    assert calls == [([package_a.resolve(), package_b.resolve()], output, "myapp", False)]
+
+
+def test_python_analysis_requires_at_least_one_package() -> None:
+    result = CliRunner().invoke(app, ["analyze", "python", "--output", "model.duckdb"])
+
+    assert result.exit_code == 2
+    assert "Укажите хотя бы один каталог-пакет" in result.output
+
+
+def test_python_analysis_rejects_missing_package_directory(tmp_path: Path) -> None:
+    missing = tmp_path / "does-not-exist"
+    result = CliRunner().invoke(
+        app,
+        ["analyze", "python", "-p", str(missing), "--output", str(tmp_path / "model.duckdb")],
+    )
+
+    assert result.exit_code == 2
+    assert "не найден или не является каталогом" in result.output

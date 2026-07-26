@@ -16,7 +16,8 @@ from typing import Annotated, Optional, Sequence, cast
 import typer
 
 from codeduck.analyzer_java import JavaAnalyzer
-from codeduck.duckdb_export import export_to_duckdb
+from codeduck.duckdb_export_java import export_to_duckdb
+from codeduck.duckdb_export_python import export_python_to_duckdb
 
 
 app = typer.Typer(
@@ -113,6 +114,65 @@ def analyze_java(
         fail(str(error))
     except OSError as error:
         fail(str(error))
+
+@analyze_app.command("python", help="Анализ Python-кода (Tree-sitter).")
+def analyze_python(
+    packages: Annotated[
+        list[Path],
+        typer.Option(
+            "-p",
+            "--package",
+            help="Каталог-пакет для анализа; имя каталога становится корневым пакетом. Можно указать несколько раз.",
+        ),
+    ] = [],
+    output: Annotated[
+        Optional[Path],
+        typer.Option("-o", "--output", help="Путь к создаваемому файлу базы DuckDB."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("-f", "--force", help="Пересоздать файл базы, если он уже существует."),
+    ] = False,
+    repo_name: Annotated[
+        Optional[str],
+        typer.Option("--repo-name", "--repo_name", help="Имя репозитория (по умолчанию имя первого каталога-пакета)."),
+    ] = None,
+    log_level: Annotated[
+        str,
+        typer.Option(help="Уровень логирования (по умолчанию INFO; тайминги этапов — на INFO)."),
+    ] = "INFO",
+) -> None:
+    """Выгрузить модель Python-пакетов в DuckDB."""
+
+    logging.basicConfig(
+        level=log_level.upper(),
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=sys.stderr,
+    )
+
+    if not packages:
+        fail("Укажите хотя бы один каталог-пакет через -p/--package.", code=2)
+    resolved_packages = [package.resolve() for package in packages]
+    for package in resolved_packages:
+        if not package.is_dir():
+            fail(f"Каталог-пакет не найден или не является каталогом: {package}", code=2)
+    if output is None:
+        fail("Укажите --output.", code=2)
+    resolved_output = cast(Path, output)
+    resolved_repo_name = repo_name or resolved_packages[0].name
+
+    try:
+        export_python_to_duckdb(
+            resolved_packages,
+            resolved_output,
+            resolved_repo_name,
+            force=force,
+        )
+    except FileExistsError as error:
+        fail(str(error))
+    except OSError as error:
+        fail(str(error))
+
 
 @app.command("mcp", help="Запустить локальный MCP-сервер (stdio) над базами DuckDB.")
 def mcp() -> None:

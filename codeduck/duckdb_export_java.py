@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
-from typing import Sequence, Tuple
+from typing import Sequence
 
 import duckdb
 import pyarrow as pa
 
 from codeduck.analyzer_java import ClassModel, JavaAnalyzer
+from codeduck.utils.arrow import insert_arrow
 from codeduck.utils.duckdb import connect as connect_duckdb
 from codeduck.utils.measure import log_duration
 
@@ -139,32 +141,14 @@ def write_database(
             for dependency_fqn in model.dependencies:
                 dependency_rows.append([class_id, model.fqn, "uses", dependency_fqn])
 
-    def insert_arrow(table_name: str, columns: Sequence[Tuple[str, object]], rows: Sequence[Sequence[object]]) -> None:
-        # Собираем данные в колоночную Arrow-таблицу и вставляем одним INSERT ... SELECT.
-        # DuckDB читает Arrow из памяти напрямую (zero-copy), минуя SQL-слой для каждой строки.
-        if not rows:
-            return
-        column_values = list(zip(*rows))
-        arrow_array = getattr(pa, "array")
-        arrow_table_factory = getattr(pa, "table")
-        arrow_table = arrow_table_factory(
-            {
-                column_name: arrow_array(list(values), type=arrow_type)
-                for (column_name, arrow_type), values in zip(columns, column_values)
-            }
-        )
-        connection.register("_insert_view", arrow_table)
-        try:
-            connection.execute("INSERT INTO %s SELECT * FROM _insert_view" % table_name)
-        finally:
-            connection.unregister("_insert_view")
+    insert = partial(insert_arrow, connection)
 
     text = pa.string()  # type: ignore[attr-defined]
     integer = pa.int32()  # type: ignore[attr-defined]
     with log_duration("Вставка данных в DuckDB"):
-        insert_arrow("repos", [("repo_id", integer), ("name", text)], [[1, repo_name]])
-        insert_arrow("java_modules", [("module_name", text), ("repo_id", integer)], module_rows)
-        insert_arrow(
+        insert("repos", [("repo_id", integer), ("name", text)], [[1, repo_name]])
+        insert("java_modules", [("module_name", text), ("repo_id", integer)], module_rows)
+        insert(
             "java_classes",
             [
                 ("module_name", text),
@@ -176,7 +160,7 @@ def write_database(
             ],
             class_rows,
         )
-        insert_arrow(
+        insert(
             "java_methods",
             [
                 ("method_id", integer),
@@ -188,10 +172,10 @@ def write_database(
             ],
             method_rows,
         )
-        insert_arrow(
+        insert(
             "java_method_annotations", [("method_id", integer), ("annotation_fqn", text)], method_annotation_rows
         )
-        insert_arrow(
+        insert(
             "java_class_dependencies",
             [
                 ("from_class_id", integer),
