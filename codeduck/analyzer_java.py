@@ -66,7 +66,8 @@ class ClassDeclaration:
 
     module_name: str
     source_type: str
-    class_name: str
+    fqn: str
+    simple_name: str
     source: JavaSource
     node: Node
 
@@ -111,21 +112,20 @@ class JavaAnalyzer:
 
         with log_duration('Поиск деклараций классов'):
             declarations = list(self._find_declarations(sources))
-        known_classes = {declaration.class_name for declaration in declarations}
+        known_classes = {declaration.fqn for declaration in declarations}
         classes_by_simple_name = self._group_by_simple_name(known_classes)
 
         models = []
         with log_duration('Анализ модели (зависимости/методы/наследование/аннотации)'):
-            for declaration in sorted(declarations, key=lambda item: (item.module_name, item.class_name)):
+            for declaration in sorted(declarations, key=lambda item: (item.module_name, item.fqn)):
                 package_name = declaration.source.package_name
-                simple_name = declaration.class_name.rsplit('.', 1)[-1]
                 models.append(
                     ClassModel(
                         module_name=declaration.module_name,
                         source_type=declaration.source_type,
-                        fqn=declaration.class_name,
+                        fqn=declaration.fqn,
                         package_name=package_name,
-                        simple_name=simple_name,
+                        simple_name=declaration.simple_name,
                         methods=tuple(self._methods(declaration, known_classes, classes_by_simple_name)),
                         dependencies=tuple(
                             sorted(self._dependencies_for(declaration, known_classes, classes_by_simple_name))
@@ -194,8 +194,8 @@ class JavaAnalyzer:
                 if name is None:
                     continue
                 simple_name = self._text(name, source.source)
-                class_name = self._qualified_name(source.package_name, simple_name)
-                yield ClassDeclaration(source.module_name, source.source_type, class_name, source, child)
+                fqn = self._qualified_name(source.package_name, simple_name)
+                yield ClassDeclaration(source.module_name, source.source_type, fqn, simple_name, source, child)
 
     def _dependencies_for(
         self,
@@ -226,7 +226,7 @@ class JavaAnalyzer:
             if dependency is not None:
                 dependencies.add(dependency)
 
-        dependencies.discard(declaration.class_name)
+        dependencies.discard(declaration.fqn)
         return dependencies
 
     def _implemented_interfaces(
@@ -256,7 +256,7 @@ class JavaAnalyzer:
                 )
                 if dependency is not None:
                     implemented_interfaces.add(dependency)
-        implemented_interfaces.discard(declaration.class_name)
+        implemented_interfaces.discard(declaration.fqn)
         return implemented_interfaces
 
     def _class_annotations(
@@ -416,7 +416,7 @@ class JavaAnalyzer:
                     known_classes,
                     classes_by_simple_name,
                 )
-                if resolved is not None and resolved != declaration.class_name:
+                if resolved is not None and resolved != declaration.fqn:
                     extended.add(resolved)
         result.extend((super_fqn, 'extends') for super_fqn in sorted(extended))
         return result
