@@ -109,10 +109,8 @@ class JavaAnalyzer:
         logger.info('Файлов распарсено: %d', len(sources))
 
         with log_duration('Поиск деклараций классов'):
-            all_declarations = list(self._find_declarations(sources))
-        target_modules = set(self.module_names)
-        declarations = [declaration for declaration in all_declarations if declaration.module_name in target_modules]
-        known_classes = {declaration.class_name for declaration in all_declarations}
+            declarations = list(self._find_declarations(sources))
+        known_classes = {declaration.class_name for declaration in declarations}
         classes_by_simple_name = self._group_by_simple_name(known_classes)
 
         models = []
@@ -141,25 +139,6 @@ class JavaAnalyzer:
         logger.info('Классов в модели: %d', len(models))
         return models
 
-    def _project_modules(self) -> tuple[str, ...]:
-        """
-        Возвращает Maven-модули для полного индекса проекта.
-
-        Returns:
-            Кортеж имён обнаруженных Maven-модулей.
-
-        Raises:
-            ValueError: Если у части указанных модулей нет ``pom.xml``.
-
-        """
-        discovered_modules = self.discover_maven_modules(self.project_root)
-        missing_modules = set(self.module_names).difference(discovered_modules)
-        if missing_modules:
-            missing = ', '.join(sorted(missing_modules))
-            msg = f'В модулях нет pom.xml: {missing}'
-            raise ValueError(msg)
-        return discovered_modules
-
     @staticmethod
     def discover_maven_modules(project_root: Path) -> tuple[str, ...]:
         """
@@ -181,11 +160,9 @@ class JavaAnalyzer:
         return tuple(sorted(modules))
 
     def _read_all_sources(self) -> Iterator[JavaSource]:
-        target_modules = set(self.module_names)
-        for module_name in self._project_modules():
+        for module_name in self.module_names:
             yield from self._read_module_sources(module_name, 'main', 'prod')
-            if module_name in target_modules:
-                yield from self._read_module_sources(module_name, 'test', 'test')
+            yield from self._read_module_sources(module_name, 'test', 'test')
 
     def _read_module_sources(self, module_name: str, source_dir: str, source_type: str) -> Iterator[JavaSource]:
         source_root = self.project_root / module_name / 'src' / source_dir / 'java'

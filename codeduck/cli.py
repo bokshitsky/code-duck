@@ -98,6 +98,8 @@ def analyze_java(
     resolved_project_root = (project_root or Path.cwd()).resolve()
     resolved_repo_name = repo_name or resolved_project_root.name
 
+    # Единственное место, где обнаруживаются Maven-модули: при --maven-all берём
+    # все модули проекта, иначе анализируем только переданные.
     if maven_all:
         module_names = JavaAnalyzer.discover_maven_modules(resolved_project_root)
         if not module_names:
